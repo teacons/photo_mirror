@@ -14,14 +14,15 @@ repositories {
     google()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    maven("https://www.baka.sk/maven2")
 }
 
 dependencies {
     implementation(compose.desktop.currentOs)
-    implementation("org.gphoto:gphoto2-java:1.5")
+    implementation(files("libs/libgphoto2-jna.jar"))
+    implementation("net.java.dev.jna:jna:5.11.0")
     implementation("org.jetbrains.compose.material:material-icons-extended-desktop:1.1.1")
     implementation("org.jetbrains.compose.components:components-splitpane-desktop:1.1.1")
+    implementation("org.burnoutcrew.composereorderable:reorderable:0.7.4")
 }
 
 tasks.withType<KotlinCompile> {

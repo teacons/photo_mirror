@@ -9,17 +9,22 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+interface Spinnable {
+
+    override fun toString(): String
+
+}
+
 @Composable
-fun Spinner(data: List<String>, selected: String, onSelectedChanges: (String) -> Unit) {
+fun Spinner(data: List<Spinnable>, selected: Spinnable, onSelectedChanges: (Spinnable) -> Unit) {
 
     var expanded by remember { mutableStateOf(false) }
 
     Card(
         backgroundColor = MaterialTheme.colors.background,
-        border = BorderStroke(1.dp, Color.Black),
+        border = BorderStroke(1.dp, MaterialTheme.colors.primary),
         modifier = Modifier
             .padding(vertical = 4.dp, horizontal = 8.dp)
             .clickable { expanded = !expanded }
@@ -29,14 +34,15 @@ fun Spinner(data: List<String>, selected: String, onSelectedChanges: (String) ->
             modifier = Modifier.padding(12.dp)
         ) {
             Text(
-                text = selected,
+                text = selected.toString(),
                 style = MaterialTheme.typography.h6,
                 modifier = Modifier.weight(1f)
             )
 
             Icon(
                 imageVector = if (expanded) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
-                contentDescription = null
+                contentDescription = null,
+                tint = MaterialTheme.colors.primary
             )
 
             DropdownMenu(
@@ -50,11 +56,10 @@ fun Spinner(data: List<String>, selected: String, onSelectedChanges: (String) ->
                             onSelectedChanges(it)
                         }
                     ) {
-                        Text(text = it)
+                        Text(text = it.toString())
                     }
                 }
             }
-
         }
     }
 }
@@ -63,6 +68,6 @@ fun Spinner(data: List<String>, selected: String, onSelectedChanges: (String) ->
 @Composable
 fun SpinnerPreview() {
     MaterialTheme {
-        Spinner(List(5) { "Test $it" }, "TEST SELECT") {}
+        Spinner(List(5) { CameraHelper("Test $it", null) }, CameraHelper("Test 1", null)) {}
     }
 }

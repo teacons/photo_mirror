@@ -12,18 +12,38 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
 import org.jetbrains.compose.splitpane.HorizontalSplitPane
 import org.jetbrains.compose.splitpane.rememberSplitPaneState
+import javax.print.PrintService
+import javax.print.PrintServiceLookup
 
-enum class MenuItems(val itemName: String) {
+enum class MenuItem(val itemName: String) {
     PhotoCamera("Фотоаппарат"),
     Printer("Принтер"),
-    PhotoServer("Фотосервер")
+    PhotoServer("Фотосервер"),
+    Layout("Макет")
 }
 
+class PrintServiceHelper(
+    val printService: PrintService?
+) : Spinnable {
+
+    override fun toString(): String = printService?.name ?: ""
+
+}
+
+class CameraHelper(
+    private val cameraModel: String,
+    val portInfo: String?
+) : Spinnable {
+
+    override fun toString(): String = cameraModel
+
+}
 
 @Composable
 @Preview
@@ -31,27 +51,27 @@ fun Settings() {
     var workWithPhotoServer by remember { mutableStateOf(false) }
     var welcomeText by remember { mutableStateOf("") }
 
-    var selectedCamera by rememberSaveable { mutableStateOf("") }
-    var selectedPrinter by rememberSaveable { mutableStateOf("") }
+    var selectedCamera by rememberSaveable { mutableStateOf(CameraHelper("", null)) }
+    var selectedPrinter by rememberSaveable { mutableStateOf(PrintServiceHelper(null)) }
 
-    val splitterState = rememberSplitPaneState()
+    val splitterState = rememberSplitPaneState(moveEnabled = false)
 
-    val menuItems = MenuItems.values()
+    val menuItems = MenuItem.values()
 
-    var selectedMenuItem by remember { mutableStateOf(MenuItems.PhotoCamera) }
+    var selectedMenuItem by remember { mutableStateOf(MenuItem.PhotoCamera) }
 
 
     HorizontalSplitPane(
         splitPaneState = splitterState
     ) {
-        first(175.dp) {
+        first(200.dp) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colors.surface)
             ) {
                 menuItems.forEach {
-                    MenuItem(it) {
+                    MenuItem(it, selectedMenuItem) {
                         selectedMenuItem = it
                     }
                 }
@@ -62,14 +82,26 @@ fun Settings() {
                 modifier = Modifier.padding(15.dp)
             ) {
                 when (selectedMenuItem) {
-                    MenuItems.PhotoCamera -> PhotoCameraSettings(selectedCamera) { cameraName ->
-                        selectedCamera = cameraName
+                    MenuItem.PhotoCamera -> PhotoCameraSettings(selectedCamera) { camera ->
+                        selectedCamera = camera
+//                        val camera = GPhoto2()
+//                        camera.open()
+//                        camera.capture() // image remains on camera
+//
+//                        val image: File = camera.captureAndDownload(false) // image saved to disk
+//
+//                        println(image.absolutePath)
+//
+//                        camera.close()
                     }
-                    MenuItems.Printer -> {
+                    MenuItem.Printer -> PrinterSettings(selectedPrinter) { printerService ->
+                        selectedPrinter = printerService
+                    }
+                    MenuItem.PhotoServer -> {
                         Box(Modifier)
                     }
-                    MenuItems.PhotoServer -> {
-                        Box(Modifier)
+                    MenuItem.Layout -> {
+                        LayoutSettings()
                     }
                 }
             }
@@ -80,23 +112,28 @@ fun Settings() {
                     modifier = Modifier
                         .width(1.dp)
                         .fillMaxHeight()
-                        .background(MaterialTheme.colors.onBackground)
+                        .background(MaterialTheme.colors.primary)
                 )
             }
 
             handle {
                 Box(Modifier)
             }
-
         }
-
-
     }
-
 }
 
 @Composable
-fun PhotoCameraSettings(selectedCamera: String, onSelectChanges: (String) -> Unit) {
+fun LayoutSettings() {
+    Dialog(
+        onCloseRequest = {}
+    ) {
+        LayoutEditor(210f / 297f)
+    }
+}
+
+@Composable
+fun PhotoCameraSettings(selectedCamera: CameraHelper, onSelectChanges: (CameraHelper) -> Unit) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -106,14 +143,40 @@ fun PhotoCameraSettings(selectedCamera: String, onSelectChanges: (String) -> Uni
         }
         Spacer(modifier = Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val cameraList = listOf("Камера 1", "Камера 2", "Камера 3")
-            Spinner(cameraList, selectedCamera, onSelectChanges)
+            val cameraList = listOf(
+                CameraHelper("Камера 1", null),
+                CameraHelper("Камера 2", null),
+                CameraHelper("Камера 3", null),
+            )
+            Spinner(cameraList, selectedCamera) {
+                onSelectChanges(it as CameraHelper)
+            }
         }
     }
 }
 
 @Composable
-fun MenuItem(item: MenuItems, selected: Boolean = false, onMenuItemClick: () -> Unit) {
+fun PrinterSettings(selectedPrinter: PrintServiceHelper, onSelectChanges: (PrintServiceHelper) -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Принтер",
+                style = MaterialTheme.typography.h5
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val printServices = PrintServiceLookup.lookupPrintServices(null, null)
+            val printerList = printServices.map { PrintServiceHelper(it) }
+            Spinner(printerList, selectedPrinter) {
+                onSelectChanges(it as PrintServiceHelper)
+            }
+        }
+    }
+}
+
+@Composable
+fun MenuItem(item: MenuItem, selectedItem: MenuItem, onMenuItemClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -123,7 +186,7 @@ fun MenuItem(item: MenuItems, selected: Boolean = false, onMenuItemClick: () -> 
     ) {
         Text(
             text = item.itemName,
-            style = if (selected) MaterialTheme.typography.h6.copy(fontWeight = FontWeight.ExtraBold)
+            style = if (selectedItem == item) MaterialTheme.typography.h6.copy(fontWeight = FontWeight.ExtraBold)
             else MaterialTheme.typography.h6
         )
     }
@@ -133,7 +196,7 @@ fun MenuItem(item: MenuItems, selected: Boolean = false, onMenuItemClick: () -> 
 @Composable
 fun MenuItemPreview() {
     MaterialTheme {
-        MenuItem(MenuItems.PhotoCamera) {}
+        MenuItem(MenuItem.PhotoCamera, MenuItem.PhotoCamera) {}
     }
 }
 
@@ -141,8 +204,6 @@ fun MenuItemPreview() {
 fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
-//        state = rememberWindowState(width = Dp.Unspecified, height = Dp.Unspecified),
-//        resizable = false,
         title = "Настройки"
     ) {
         MaterialTheme {

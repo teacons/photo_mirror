@@ -148,8 +148,11 @@ fun PhotoCameraSettings(selectedCamera: CameraHelper, onSelectChanges: (CameraHe
                 CameraHelper("Камера 2", null),
                 CameraHelper("Камера 3", null),
             )
-            Spinner(cameraList, selectedCamera) {
-                onSelectChanges(it as CameraHelper)
+            Spinner(
+                cameraList, selectedCamera,
+                onSelectedChanges = { onSelectChanges(it as CameraHelper) }
+            ) {
+                Text(text = it.toString())
             }
         }
     }
@@ -168,8 +171,11 @@ fun PrinterSettings(selectedPrinter: PrintServiceHelper, onSelectChanges: (Print
         Row(verticalAlignment = Alignment.CenterVertically) {
             val printServices = PrintServiceLookup.lookupPrintServices(null, null)
             val printerList = printServices.map { PrintServiceHelper(it) }
-            Spinner(printerList, selectedPrinter) {
-                onSelectChanges(it as PrintServiceHelper)
+            Spinner(
+                printerList, selectedPrinter,
+                onSelectedChanges = { onSelectChanges(it as PrintServiceHelper) }
+            ) {
+                Text(text = it.toString())
             }
         }
     }

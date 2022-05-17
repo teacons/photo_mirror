@@ -1,5 +1,6 @@
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -12,7 +13,6 @@ import androidx.compose.material.icons.filled.Title
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.loadImageBitmap
@@ -31,7 +31,11 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.rememberDialogState
 import androidx.compose.ui.window.singleWindowApplication
+import androidx.compose.ui.zIndex
+import com.godaddy.android.colorpicker.harmony.ColorHarmonyMode
+import com.godaddy.android.colorpicker.harmony.HarmonyColorPicker
 import org.burnoutcrew.reorderable.*
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
 import org.jetbrains.compose.splitpane.HorizontalSplitPane
@@ -41,38 +45,49 @@ import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Typeface
 import java.awt.GraphicsEnvironment
 import java.io.File
+import javax.imageio.ImageIO
+import javax.swing.JFileChooser
+import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.math.roundToInt
 
 open class Layer(
     open val name: String,
-    open val offset: Offset
+    open var offset: MutableState<Offset>,
+    open var scale: MutableState<Float>,
+    open var rotation: MutableState<Float>,
 )
 
-class PhotoLayer(
+data class PhotoLayer(
     override val name: String,
-    override val offset: Offset
-) : Layer(name, offset)
+    override var offset: MutableState<Offset>,
+    override var scale: MutableState<Float>,
+    override var rotation: MutableState<Float>,
+) : Layer(name, offset, scale, rotation)
 
 
-class TextLayer(
+data class TextLayer(
     override val name: String,
-    override val offset: Offset,
+    override var offset: MutableState<Offset>,
+    override var scale: MutableState<Float>,
+    override var rotation: MutableState<Float>,
     val fontFamily: FontFamily,
     val fontSize: Int,
     val color: Color
-) : Layer(name, offset)
+) : Layer(name, offset, scale, rotation)
 
-class ImageLayer(
+data class ImageLayer(
     override val name: String,
-    override val offset: Offset,
-    val file: File?
-) : Layer(name, offset)
+    override var offset: MutableState<Offset>,
+    override var scale: MutableState<Float>,
+    override var rotation: MutableState<Float>,
+    val imageFile: File
+) : Layer(name, offset, scale, rotation)
 
 
 class EffectLayer(
     override val name: String,
-    override val offset: Offset
-) : Layer(name, offset)
+    override var offset: MutableState<Offset>
+) : Layer(name, offset, mutableStateOf(1f), mutableStateOf(0f))
 
 
 fun main() = singleWindowApplication {
@@ -87,6 +102,9 @@ fun LayoutEditor(ratio: Float) {
     val layersList = remember { mutableStateListOf<Layer>() }
     val splitterState = rememberSplitPaneState(1f)
     val hSplitterState = rememberSplitPaneState(moveEnabled = false)
+    val toolsSplitterState = rememberSplitPaneState(moveEnabled = false)
+    var selectedLayer by remember { mutableStateOf<Layer?>(null) }
+
 
     HorizontalSplitPane(splitPaneState = splitterState) {
         first(200.dp) {
@@ -97,19 +115,56 @@ fun LayoutEditor(ratio: Float) {
                     }
                 }
                 second {
-                    DraggableEditor(layersList, ratio)
+                    DraggableEditor(
+                        layersList,
+                        ratio,
+                        selectedLayer,
+                        onSelectedChange = { selectedLayer = it })
                 }
             }
         }
         second(100.dp) {
-            LayersList(
-                layersList,
-                onLayersOrderChanged = { from, to ->
-                    layersList.move(from.index, to.index)
-                },
-                onClick = { layer ->
-                    layersList.remove(layer)
-                })
+            VerticalSplitPane(splitPaneState = toolsSplitterState) {
+                first(if (selectedLayer == null) 0.dp else 150.dp) {
+                    Box(
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        if (selectedLayer != null) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = "Масштаб: ${(selectedLayer!!.scale.value * 100).roundToInt()}%",
+                                    style = MaterialTheme.typography.h6
+                                )
+                                Slider(
+                                    value = selectedLayer!!.scale.value,
+                                    onValueChange = { selectedLayer!!.scale.value = it },
+                                    valueRange = 0f..3f
+                                )
+                                Text(
+                                    text = "Поворот: ${selectedLayer!!.rotation.value}",
+                                    style = MaterialTheme.typography.h6
+                                )
+                                Slider(
+                                    value = selectedLayer!!.rotation.value,
+                                    onValueChange = { selectedLayer!!.rotation.value = it },
+                                    valueRange = 0f..360f
+                                )
+                            }
+                        }
+                    }
+                }
+                second {
+                    LayersList(
+                        layersList,
+                        onLayersOrderChanged = { from, to ->
+                            layersList.move(from.index, to.index)
+                        },
+                        onClick = { layer ->
+                            layersList.remove(layer)
+                        })
+                }
+            }
+
         }
     }
 }
@@ -117,55 +172,60 @@ fun LayoutEditor(ratio: Float) {
 fun loadImageBitmap(file: File): ImageBitmap = file.inputStream().buffered().use(::loadImageBitmap)
 
 @Composable
-fun DraggableEditor(layers: List<Layer>, ratio: Float) {
+fun DraggableEditor(layers: List<Layer>, ratio: Float, selectedLayer: Layer?, onSelectedChange: (Layer) -> Unit) {
     Box(
-        modifier = Modifier.background(Color.Gray).fillMaxSize(), contentAlignment = Alignment.Center
+        modifier = Modifier
+            .background(Color.Gray)
+            .fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
         Box(
-            modifier = Modifier.padding(4.dp)
+            modifier = Modifier
+                .padding(4.dp)
                 .clipToBounds()
-                .background(Color.White).aspectRatio(ratio),
+                .background(Color.White)
+                .aspectRatio(ratio),
             contentAlignment = Alignment.Center
         ) {
-            layers.forEach {
-                when (it) {
+            layers.forEachIndexed { index, layer ->
+                val editingModifier =
+                    Modifier
+                        .offset { IntOffset(layer.offset.value.x.roundToInt(), layer.offset.value.y.roundToInt()) }
+                        .pointerInput(layer) {
+                            detectDragGestures(
+                                onDragStart = { onSelectedChange(layer) },
+                            ) { change, dragAmount ->
+                                change.consumeAllChanges()
+                                layer.offset.value += dragAmount
+                            }
+                        }
+                        .graphicsLayer(
+                            scaleX = layer.scale.value,
+                            scaleY = layer.scale.value,
+                            rotationZ = layer.rotation.value,
+                        )
+                        .then(if (selectedLayer == layer) Modifier.border(2.dp, Color.Black) else Modifier)
+                        .clickable { onSelectedChange(layer) }
+                        .zIndex(index.toFloat())
+
+                when (layer) {
                     is PhotoLayer -> {}
                     is TextLayer -> {
-                        EditingBox(onDimensionChange = { offset, scale ->
-
-                        }) { _ ->
-                            Text(
-                                text = it.name,
-                                fontFamily = it.fontFamily,
-                                fontSize = it.fontSize.sp,
-                                color = it.color
-                            )
-                        }
+                        Text(
+                            text = layer.name,
+                            fontFamily = layer.fontFamily,
+                            fontSize = layer.fontSize.sp,
+                            color = layer.color,
+                            modifier = editingModifier
+                        )
                     }
-                    is ImageLayer -> EditingBox(onDimensionChange = { offset, scale ->
-
-                    }) { scale ->
-                        if (it.file != null) {
-                            val image = loadImageBitmap(it.file)
-                            Image(
-                                bitmap = image, contentDescription = null,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier
-//                                    .graphicsLayer(
-//                                        scaleX = scale,
-//                                        scaleY = scale
-//                                    )
-//                                    .size(image.width.dp*scale, image.height.dp*scale)
-//                                    .scale(scale)
-//                                    .background(Color.Red)
-//                                    .aspectRatio((image.width/image.height).toFloat())
-//                                    .fillMaxWidth()
-//                                    .wrapContentSize()
-
-                            )
-
-                        } else Text("File not found")
-
+                    is ImageLayer -> {
+                        Image(
+                            bitmap = loadImageBitmap(layer.imageFile),
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier = editingModifier
+                        )
                     }
                     is EffectLayer -> {}
                 }
@@ -174,214 +234,6 @@ fun DraggableEditor(layers: List<Layer>, ratio: Float) {
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-fun EditingBox(
-    modifier: Modifier = Modifier,
-    initialOffset: Offset = Offset.Zero,
-    initialScale: Float = 1f,
-    onDimensionChange: (Offset, Float) -> Unit,
-    Content: @Composable (Float) -> Unit
-) {
-    var offset by remember { mutableStateOf(initialOffset) }
-
-    var scale by remember { mutableStateOf(1f) }
-
-    val size by remember { mutableStateOf(DpSize.Unspecified) }
-
-//    var oldSize by remember { mutableStateOf(Pair(100.dp, 100.dp)) }
-//    var newSize by remember { mutableStateOf(Pair(100.dp, 100.dp)) }
-
-    var borderVisible by remember { mutableStateOf(false) }
-
-    BoxWithConstraints(modifier = Modifier
-        .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-        .pointerInput(Unit) {
-//            detectDragGestures(
-//                onDragStart = { borderVisible = true },
-////                onDragEnd = { onDimensionChange(offset, scale) },
-////                onDragCancel = { onDimensionChange(offset, scale) }
-//            ) { change, dragAmount ->
-//                change.consumeAllChanges()
-//                offset += dragAmount
-//            }
-        }
-        .graphicsLayer(
-            scaleX = scale,
-            scaleY = scale
-        )
-//        .size(size)
-        .clickable { borderVisible = !borderVisible }
-
-        .then(if (borderVisible) Modifier.border(2.dp, Color.Black) else Modifier)
-        .wrapContentSize()
-        .then(modifier)
-//        .pointerInput(Unit) {
-//            awaitPointerEventScope {
-//                while (true) {
-//                    val event = awaitPointerEvent()
-//                    val position = event.changes.first().position
-//                    // on every relayout Compose will send synthetic Move event,
-//                    // so we skip it to avoid event spam
-////                    if (event.type != PointerEventType.Move) {
-//                        println("${event.type} $position")
-////                    }
-//                }
-//            }}
-
-    ) {
-        val oldSize by remember { mutableStateOf(Pair(this.maxWidth, this.maxWidth)) }
-        var newSize by remember { mutableStateOf(Pair(this.maxWidth, this.maxWidth)) }
-//        var count by remember { mutableStateOf(0) }
-//        var firstPos by remember { mutableStateOf(Offset(0f, 0f)) }
-
-        Box(
-            contentAlignment = Alignment.Center,
-//            modifier = Modifier.scale(scale)
-        ) {
-            Content(scale)
-        }
-        if (borderVisible) {
-
-            Box(
-                modifier = Modifier.background(Color.Black).align(Alignment.TopStart).size(10.dp)
-                    .pointerInput(Unit) {
-                        awaitPointerEventScope {
-                            var pressed = false
-                            var initOffset = Offset.Zero
-                            var resultOffset = Offset.Zero
-                            val width = maxWidth.toPx()
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                event.changes
-
-                                val position = event.changes.first().position
-                                // on every relayout Compose will send synthetic Move event,
-                                // so we skip it to avoid event spam
-                                when (event.type) {
-                                    PointerEventType.Press -> {
-                                        pressed = true
-                                        resultOffset = Offset.Zero
-                                        initOffset = position
-                                    }
-                                    PointerEventType.Release -> {
-                                        pressed = false
-                                        resultOffset = Offset.Zero
-                                        initOffset = Offset.Zero
-                                    }
-                                    PointerEventType.Move -> {
-                                        if (pressed) {
-//                                            scale = (position.x + initOffset.x) / initOffset.x
-                                            println("initOffset: $initOffset | resultOffset: $position | scale: $scale | width: $width")
-//                                            println(event.changes.map { it.position })
-//                                            resultOffset += position
-                                            scale = maxOf((-position.x + scale * width) / width, 0.3f)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        /*detectDragGestures(
-                            onDrag = { change, _ ->
-                                if (count == 0) {
-                                    count = 1
-                                    firstPos = change.previousPosition
-                                    println("firstPos = $firstPos")
-
-    //                                return@detectDragGestures
-                                }
-                                change.consumeAllChanges()
-    //                            change.position.getDistance()
-    //                            scale = (sqrt(
-    //                                (firstPos.x.toDouble() - change.position.x.toDouble()).pow(2.0) -
-    //                                        (firstPos.x.toDouble() - change.position.x.toDouble()).pow(2.0)
-    //                            ).dp + oldSize.first) / oldSize.first
-                                val delta = change.previousPosition - change.position
-
-                                scale = if (delta.x <= 0 || delta.y <= 0) {
-    //                                 увеличение
-                                    if (delta.x <= 0)
-                                        (-abs(change.position.x).dp + oldSize.first) / oldSize.first
-                                    else
-                                        (abs(change.position.y).dp + oldSize.second) / oldSize.second
-                                } else {
-                                    // уменьшение
-                                    (change.position.x.dp + oldSize.first) / oldSize.first
-                                }
-    //                            scale = (-change.position.x.dp + oldSize.first) / oldSize.first
-
-    //                            scale =
-    //                                (abs(change.position.getDistance()).dp +
-    //                                        sqrt(oldSize.first.value + oldSize.second.value).dp) /
-    //                                        sqrt(oldSize.first.value + oldSize.second.value).dp
-                                println("change = $change")
-                                println("x = ${change.position.x}")
-                                println(scale)
-    //                            count--
-    //                            newSize = Pair(oldSize.first * scale, oldSize.second * scale)
-                            }, onDragEnd = {
-                                firstPos = Offset(0f, 0f)
-                                count = 0
-    //                            oldSize = newSize
-    //                            onDimensionChange(offset, scale)
-                            }, onDragCancel = {
-    //                            oldSize = newSize
-    //                            onDimensionChange(offset, scale)
-                            })*/
-                    }
-            )
-            Box(
-                modifier = Modifier.background(Color.Black).align(Alignment.TopEnd).size(10.dp).pointerInput(Unit) {
-                    /*         detectDragGestures(
-                                 onDrag = { change, _ ->
-                                     change.consumeAllChanges()
-                                     scale =
-                                         (change.position.x.dp + oldSize.first) / oldSize.first
-
-         //                            newSize = Pair(oldSize.first * scale.first, oldSize.second * scale.second)
-                                 }, onDragEnd = {
-         //                            oldSize = newSize
-                                 }, onDragCancel = {
-         //                            oldSize = newSize
-                                 })*/
-                }
-            )
-            Box(
-                modifier = Modifier.background(Color.Black).align(Alignment.BottomStart).size(10.dp)
-                    .pointerInput(Unit) {
-                        /*detectDragGestures(
-                            onDrag = { change, _ ->
-                                change.consumeAllChanges()
-                                scale =
-                                    (-change.position.x.dp + oldSize.first) / oldSize.first
-//                                newSize = Pair(oldSize.first * scale.first, oldSize.second * scale.second)
-                            }, onDragEnd = {
-//                                oldSize = newSize
-                            }, onDragCancel = {
-//                                oldSize = newSize
-                            })*/
-                    }
-            )
-            Box(
-                modifier = Modifier.background(Color.Black).align(Alignment.BottomEnd).size(10.dp).pointerInput(Unit) {
-                    /*detectDragGestures(
-                        onDrag = { change, _ ->
-                            change.consumeAllChanges()
-                            scale =
-                                (change.position.x.dp + oldSize.first) / oldSize.first
-//                            newSize = Pair(oldSize.first * scale.first, oldSize.second * scale.second)
-                        }, onDragEnd = {
-//                            oldSize = newSize
-                        }, onDragCancel = {
-//                            oldSize = newSize
-                        })*/
-                }
-            )
-        }
-    }
-}
-
-var v = 0
 
 @Composable
 fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
@@ -391,12 +243,15 @@ fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
     var fontError by remember { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableStateOf("") }
     var fontSizeError by remember { mutableStateOf(false) }
+    var color by remember { mutableStateOf(Color.Black) }
 
+    val dialogState = rememberDialogState(size = DpSize(500.dp, 700.dp))
     Dialog(
         onCloseRequest = { onCloseRequest(null) },
-        title = ""
+        title = "",
+        state = dialogState
     ) {
-        Column {
+        Column(horizontalAlignment = Alignment.Start, modifier = Modifier.padding(8.dp)) {
             val fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
             SearchableSpinner(
                 data = fonts.map { Font(it) },
@@ -422,6 +277,13 @@ fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
                 isError = fontSizeError,
                 label = { Text("Размер") }
             )
+            HarmonyColorPicker(
+                harmonyMode = ColorHarmonyMode.SHADES,
+                modifier = Modifier.size(400.dp),
+                onColorChanged = { hsvColor ->
+                    color = hsvColor.toColor()
+                }
+            )
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
@@ -436,19 +298,96 @@ fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
                         onCloseRequest(
                             TextLayer(
                                 text,
-                                Offset.Zero,
+                                mutableStateOf(Offset.Zero),
+                                mutableStateOf(1f),
+                                mutableStateOf(0f),
                                 FontFamily(Typeface(Typeface.makeFromName(textFont, FontStyle.NORMAL))),
                                 fontSize.toInt(),
-                                if (v == 0) {
-                                    v++
-                                    Color.Red
-                                } else Color.Blue
+                                color
                             )
                         )
                     else {
                         textError = text.isEmpty()
                         fontError = textFont.isEmpty()
                         fontSizeError = fontSize.isEmpty() || fontSize.toIntOrNull() == null
+                    }
+                },
+            ) {
+                Text(text = "OK")
+            }
+        }
+    }
+}
+
+@Composable
+fun ImageDialog(onCloseRequest: (ImageLayer?) -> Unit) {
+    var imageFile by rememberSaveable { mutableStateOf<File?>(null) }
+    var imageFileError by rememberSaveable { mutableStateOf(false) }
+    val dialogState = rememberDialogState(size = DpSize(700.dp, 700.dp))
+    Dialog(
+        onCloseRequest = { onCloseRequest(null) },
+        title = "",
+        state = dialogState
+    ) {
+        Column(
+            horizontalAlignment = Alignment.Start,
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Файл изображения",
+                style = MaterialTheme.typography.h6
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = if (imageFile == null) "" else imageFile!!.absolutePath,
+                    onValueChange = {},
+                    isError = imageFileError,
+                    readOnly = true,
+                    enabled = false,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                    textStyle = MaterialTheme.typography.body1,
+                )
+                Button(
+                    onClick = {
+                        val chooser = JFileChooser()
+                        chooser.fileSelectionMode = JFileChooser.FILES_ONLY
+                        chooser.fileFilter = FileNameExtensionFilter(
+                            "Image files",
+                            *ImageIO.getReaderFileSuffixes()
+                        )
+                        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                            imageFile = File(chooser.selectedFile.path)
+                        }
+                    }
+                ) {
+                    Text(
+                        text = "Выбрать",
+                    )
+                }
+            }
+            if (imageFile != null) {
+                Image(
+                    bitmap = loadImageBitmap(imageFile!!),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                )
+            }
+            Button(
+                onClick = {
+                    if (imageFile != null)
+                        onCloseRequest(
+                            ImageLayer(
+                                "Изображение ${imageFile!!.name}",
+                                mutableStateOf(Offset.Zero),
+                                mutableStateOf(1f),
+                                mutableStateOf(0f),
+                                imageFile!!
+                            )
+                        )
+                    else {
+                        imageFileError = true
                     }
                 },
             ) {
@@ -474,9 +413,9 @@ fun TextDialogPreview() {
 @Composable
 fun ToolBar(onAddLayerListener: (Layer) -> Unit) {
     val stateHorizontal = rememberScrollState(0)
-    var imageCounter by remember { mutableStateOf(1) }
 
     var textDialogIsVisible by remember { mutableStateOf(false) }
+    var imageDialogIsVisible by remember { mutableStateOf(false) }
 
     Box {
         Row(
@@ -484,22 +423,23 @@ fun ToolBar(onAddLayerListener: (Layer) -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             ToolBarButton("Add Photo", Icons.Filled.Portrait) {
-                onAddLayerListener(PhotoLayer("Фото: ", Offset.Zero))
+                onAddLayerListener(
+                    PhotoLayer(
+                        "Фото: ",
+                        mutableStateOf(Offset.Zero),
+                        mutableStateOf(1f),
+                        mutableStateOf(0f)
+                    )
+                )
             }
             ToolBarButton("Add Text", Icons.Filled.Title) {
                 textDialogIsVisible = true
-//                onAddLayerListener(TextLayer("Текст: "))
             }
             ToolBarButton("Add Image", Icons.Filled.Image) {
-                onAddLayerListener(
-                    ImageLayer(
-                        "Изображение: $imageCounter", Offset.Zero, File("img.png")
-                    )
-                )
-                imageCounter++
+                imageDialogIsVisible = true
             }
             ToolBarButton("Add Effect", Icons.Filled.PhotoFilter) {
-                onAddLayerListener(EffectLayer("Эффект: ", Offset.Zero))
+                onAddLayerListener(EffectLayer("Эффект: ", mutableStateOf(Offset.Zero)))
             }
         }
         HorizontalScrollbar(
@@ -511,6 +451,12 @@ fun ToolBar(onAddLayerListener: (Layer) -> Unit) {
         textDialogIsVisible = false
         if (textLayer != null) {
             onAddLayerListener(textLayer)
+        }
+    }
+    if (imageDialogIsVisible) ImageDialog { imageLayer ->
+        imageDialogIsVisible = false
+        if (imageLayer != null) {
+            onAddLayerListener(imageLayer)
         }
     }
 }

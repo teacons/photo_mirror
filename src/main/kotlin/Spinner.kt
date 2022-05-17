@@ -85,7 +85,7 @@ fun SearchableSpinner(
                 onValueChange = {
                     searchText = it
                     searchedData = data
-                        .filter { element -> element.toString().startsWith(searchText, ignoreCase = true) }
+                        .filter { element -> element.toString().contains(searchText, ignoreCase = true) }
                     expanded = true
                 },
                 label = label,

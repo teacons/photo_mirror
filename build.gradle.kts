@@ -23,6 +23,8 @@ dependencies {
     implementation("org.jetbrains.compose.material:material-icons-extended-desktop:1.1.1")
     implementation("org.jetbrains.compose.components:components-splitpane-desktop:1.1.1")
     implementation("org.burnoutcrew.composereorderable:reorderable:0.7.4")
+    implementation("com.godaddy.android.colorpicker:compose-color-picker:0.4.2")
+
 }
 
 tasks.withType<KotlinCompile> {

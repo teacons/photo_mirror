@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.PhotoFilter
 import androidx.compose.material.icons.filled.Portrait
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.runtime.*
@@ -82,13 +81,6 @@ data class ImageLayer(
     override var rotation: MutableState<Float>,
     val imageFile: File
 ) : Layer(name, offset, scale, rotation)
-
-
-class EffectLayer(
-    override val name: String,
-    override var offset: MutableState<Offset>
-) : Layer(name, offset, mutableStateOf(1f), mutableStateOf(0f))
-
 
 fun main() = singleWindowApplication {
     MaterialTheme {
@@ -227,7 +219,6 @@ fun DraggableEditor(layers: List<Layer>, ratio: Float, selectedLayer: Layer?, on
                             modifier = editingModifier
                         )
                     }
-                    is EffectLayer -> {}
                 }
             }
         }
@@ -437,9 +428,6 @@ fun ToolBar(onAddLayerListener: (Layer) -> Unit) {
             }
             ToolBarButton("Add Image", Icons.Filled.Image) {
                 imageDialogIsVisible = true
-            }
-            ToolBarButton("Add Effect", Icons.Filled.PhotoFilter) {
-                onAddLayerListener(EffectLayer("Эффект: ", mutableStateOf(Offset.Zero)))
             }
         }
         HorizontalScrollbar(

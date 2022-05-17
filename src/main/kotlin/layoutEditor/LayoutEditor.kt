@@ -36,15 +36,19 @@ fun LayoutEditor(ratio: Float) {
     val hSplitterState = rememberSplitPaneState(moveEnabled = false)
     val toolsSplitterState = rememberSplitPaneState(moveEnabled = false)
     var selectedLayer by remember { mutableStateOf<Layer?>(null) }
+    var textDialogIsVisible by remember { mutableStateOf(false) }
+    var imageDialogIsVisible by remember { mutableStateOf(false) }
 
 
     HorizontalSplitPane(splitPaneState = splitterState) {
         first(200.dp) {
             VerticalSplitPane(splitPaneState = hSplitterState) {
                 first(100.dp) {
-                    ToolBar {
-                        layersList.add(it)
-                    }
+                    ToolBar(
+                        onAddText = { textDialogIsVisible = true },
+                        onAddImage = { imageDialogIsVisible = true },
+                        onAddPhoto = {}
+                    )
                 }
                 second {
                     DraggableEditor(
@@ -92,11 +96,53 @@ fun LayoutEditor(ratio: Float) {
                             layersList.move(from.index, to.index)
                         },
                         onClick = { layer ->
-                            layersList.remove(layer)
-                        })
+                            selectedLayer = layer
+                            when (layer) {
+                                is ImageLayer -> {
+                                    imageDialogIsVisible = true
+                                }
+                                is TextLayer -> {
+                                    textDialogIsVisible = true
+                                }
+                                is PhotoLayer -> {}
+                            }
+                        },
+                        onDelete = { layersList.remove(it) }
+                    )
                 }
             }
 
+        }
+    }
+
+    if (textDialogIsVisible) {
+        TextDialog(selectedLayer as TextLayer?) { textLayer ->
+            textDialogIsVisible = false
+            if (textLayer != null) {
+                if (selectedLayer != null) {
+                    (selectedLayer as TextLayer).apply {
+                        name = textLayer.name
+                        fontFamily = textLayer.fontFamily
+                        fontSize = textLayer.fontSize
+                        color = textLayer.color
+                    }
+                } else
+                    layersList.add(textLayer)
+            }
+        }
+    }
+    if (imageDialogIsVisible) {
+        ImageDialog(selectedLayer as ImageLayer?) { imageLayer ->
+            imageDialogIsVisible = false
+            if (imageLayer != null) {
+                if (selectedLayer != null) {
+                    (selectedLayer as ImageLayer).apply {
+                        name = imageLayer.name
+                        imageFile = imageLayer.imageFile
+                    }
+                } else
+                    layersList.add(imageLayer)
+            }
         }
     }
 }

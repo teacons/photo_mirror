@@ -30,14 +30,17 @@ import java.awt.GraphicsEnvironment
 
 
 @Composable
-fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
-    var text by rememberSaveable { mutableStateOf("") }
+fun TextDialog(
+    layer: TextLayer? = null,
+    onCloseRequest: (TextLayer?) -> Unit
+) {
+    var text by rememberSaveable { mutableStateOf(layer?.name ?: "") }
     var textError by remember { mutableStateOf(false) }
-    var textFont by rememberSaveable { mutableStateOf("") }
+    var textFont by rememberSaveable { mutableStateOf(layer?.fontFamily ?: "") }
     var fontError by remember { mutableStateOf(false) }
-    var fontSize by rememberSaveable { mutableStateOf("") }
+    var fontSize by rememberSaveable { mutableStateOf(layer?.fontSize) }
     var fontSizeError by remember { mutableStateOf(false) }
-    var color by remember { mutableStateOf(Color.Black) }
+    var color by remember { mutableStateOf(layer?.color ?: Color.Red) }
 
     val dialogState = rememberDialogState(size = DpSize(500.dp, 700.dp))
     Dialog(
@@ -49,6 +52,7 @@ fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
             val fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
             SearchableSpinner(
                 data = fonts.map { Font(it) },
+                value = textFont,
                 onSelectedChanges = { textFont = it.toString() },
                 isError = fontError,
                 label = { Text("Шрифт") }
@@ -66,8 +70,8 @@ fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
                 )
             }
             OutlinedTextField(
-                value = fontSize,
-                onValueChange = { fontSize = it },
+                value = if (fontSize == null) "" else fontSize.toString(),
+                onValueChange = { fontSize = it.toIntOrNull() },
                 isError = fontSizeError,
                 label = { Text("Размер") }
             )
@@ -76,7 +80,8 @@ fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
                 modifier = Modifier.size(400.dp),
                 onColorChanged = { hsvColor ->
                     color = hsvColor.toColor()
-                }
+                },
+                color = color
             )
             OutlinedTextField(
                 value = text,
@@ -86,8 +91,7 @@ fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
             )
             Button(
                 onClick = {
-                    if (text.isNotEmpty() && textFont.isNotEmpty() &&
-                        (fontSize.isNotEmpty() && fontSize.toIntOrNull() != null)
+                    if (text.isNotEmpty() && textFont.isNotEmpty() && fontSize != null
                     )
                         onCloseRequest(
                             TextLayer(
@@ -95,15 +99,15 @@ fun TextDialog(onCloseRequest: (TextLayer?) -> Unit) {
                                 mutableStateOf(Offset.Zero),
                                 mutableStateOf(1f),
                                 mutableStateOf(0f),
-                                FontFamily(Typeface(Typeface.makeFromName(textFont, FontStyle.NORMAL))),
-                                fontSize.toInt(),
+                                textFont,
+                                fontSize!!,
                                 color
                             )
                         )
                     else {
                         textError = text.isEmpty()
                         fontError = textFont.isEmpty()
-                        fontSizeError = fontSize.isEmpty() || fontSize.toIntOrNull() == null
+                        fontSizeError = fontSize == null || fontSize == 0
                     }
                 },
             ) {

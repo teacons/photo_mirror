@@ -16,10 +16,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.platform.Typeface
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import org.jetbrains.skia.FontStyle
+import org.jetbrains.skia.Typeface
 import kotlin.math.roundToInt
 
 @Composable
@@ -64,7 +68,14 @@ fun DraggableEditor(layers: List<Layer>, ratio: Float, selectedLayer: Layer?, on
                     is TextLayer -> {
                         Text(
                             text = layer.name,
-                            fontFamily = layer.fontFamily,
+                            fontFamily = FontFamily(
+                                Typeface(
+                                    Typeface.makeFromName(
+                                        layer.fontFamily,
+                                        FontStyle.NORMAL
+                                    )
+                                )
+                            ),
                             fontSize = layer.fontSize.sp,
                             color = layer.color,
                             modifier = editingModifier

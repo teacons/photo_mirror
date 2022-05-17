@@ -25,8 +25,11 @@ import javax.swing.filechooser.FileNameExtensionFilter
 
 
 @Composable
-fun ImageDialog(onCloseRequest: (ImageLayer?) -> Unit) {
-    var imageFile by rememberSaveable { mutableStateOf<File?>(null) }
+fun ImageDialog(
+    layer: ImageLayer? = null,
+    onCloseRequest: (ImageLayer?) -> Unit
+) {
+    var imageFile by rememberSaveable { mutableStateOf(layer?.imageFile) }
     var imageFileError by rememberSaveable { mutableStateOf(false) }
     val dialogState = rememberDialogState(size = DpSize(700.dp, 700.dp))
     Dialog(

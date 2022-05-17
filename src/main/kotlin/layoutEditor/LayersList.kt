@@ -1,15 +1,12 @@
 package layoutEditor
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,7 +16,8 @@ import org.burnoutcrew.reorderable.*
 fun LayersList(
     layersList: List<Layer>,
     onLayersOrderChanged: (ItemPosition, ItemPosition) -> Unit,
-    onClick: (Layer) -> Unit
+    onClick: (Layer) -> Unit,
+    onDelete: (Layer) -> Unit
 ) {
     val state = rememberReorderState()
 
@@ -40,11 +38,25 @@ fun LayersList(
                     .detectReorder(state)
                     .fillParentMaxWidth()
             ) {
-                Text(
-                    text = item.name,
-                    style = MaterialTheme.typography.h6,
+                Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                ) {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.h6,
+                        modifier = Modifier.weight(1f)
+
+                    )
+                    IconButton(
+                        onClick = {onDelete(item)}
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colors.primary
+                        )
+                    }
+                }
             }
         }
     }

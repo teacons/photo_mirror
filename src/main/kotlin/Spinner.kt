@@ -65,6 +65,7 @@ fun Spinner(
 @Composable
 fun SearchableSpinner(
     data: List<Spinnable>,
+    value: String = "",
     onSelectedChanges: (Spinnable) -> Unit,
     isError: Boolean = false,
     modifier: Modifier = Modifier,
@@ -74,7 +75,7 @@ fun SearchableSpinner(
 
     var expanded by remember { mutableStateOf(false) }
 
-    var searchText by remember { mutableStateOf("") }
+    var searchText by remember { mutableStateOf(value) }
 
     var searchedData by remember { mutableStateOf(data) }
 

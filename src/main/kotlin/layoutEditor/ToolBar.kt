@@ -14,59 +14,33 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Portrait
 import androidx.compose.material.icons.filled.Title
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 
 @Composable
-fun ToolBar(onAddLayerListener: (Layer) -> Unit) {
+fun ToolBar(
+    onAddText: () -> Unit,
+    onAddImage: () -> Unit,
+    onAddPhoto: () -> Unit,
+) {
     val stateHorizontal = rememberScrollState(0)
-
-    var textDialogIsVisible by remember { mutableStateOf(false) }
-    var imageDialogIsVisible by remember { mutableStateOf(false) }
-
     Box {
         Row(
             modifier = Modifier.horizontalScroll(stateHorizontal).fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ToolBarButton("Add Photo", Icons.Filled.Portrait) {
-                onAddLayerListener(
-                    PhotoLayer(
-                        "Фото: ",
-                        mutableStateOf(Offset.Zero),
-                        mutableStateOf(1f),
-                        mutableStateOf(0f)
-                    )
-                )
-            }
-            ToolBarButton("Add Text", Icons.Filled.Title) {
-                textDialogIsVisible = true
-            }
-            ToolBarButton("Add Image", Icons.Filled.Image) {
-                imageDialogIsVisible = true
-            }
+            ToolBarButton("Add Photo", Icons.Filled.Portrait, onAddPhoto)
+            ToolBarButton("Add Text", Icons.Filled.Title, onAddText)
+            ToolBarButton("Add Image", Icons.Filled.Image, onAddImage)
         }
         HorizontalScrollbar(
             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth(),
             adapter = rememberScrollbarAdapter(stateHorizontal)
         )
-    }
-    if (textDialogIsVisible) TextDialog { textLayer ->
-        textDialogIsVisible = false
-        if (textLayer != null) {
-            onAddLayerListener(textLayer)
-        }
-    }
-    if (imageDialogIsVisible) ImageDialog { imageLayer ->
-        imageDialogIsVisible = false
-        if (imageLayer != null) {
-            onAddLayerListener(imageLayer)
-        }
     }
 }
 
@@ -91,6 +65,6 @@ fun ToolBarButton(buttonName: String, buttonIcon: ImageVector, onClick: () -> Un
 @Composable
 fun ToolbarPreview() {
     MaterialTheme {
-        ToolBar {}
+        ToolBar({}, {}, {})
     }
 }

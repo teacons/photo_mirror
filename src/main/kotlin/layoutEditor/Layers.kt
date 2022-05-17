@@ -3,7 +3,6 @@ package layoutEditor
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import java.io.File
 
 open class Layer(
@@ -22,19 +21,19 @@ data class PhotoLayer(
 
 
 data class TextLayer(
-    override val name: String,
+    override var name: String,
     override var offset: MutableState<Offset>,
     override var scale: MutableState<Float>,
     override var rotation: MutableState<Float>,
-    val fontFamily: FontFamily,
-    val fontSize: Int,
-    val color: Color
+    var fontFamily: String,
+    var fontSize: Int,
+    var color: Color
 ) : Layer(name, offset, scale, rotation)
 
 data class ImageLayer(
-    override val name: String,
+    override var name: String,
     override var offset: MutableState<Offset>,
     override var scale: MutableState<Float>,
     override var rotation: MutableState<Float>,
-    val imageFile: File
+    var imageFile: File
 ) : Layer(name, offset, scale, rotation)

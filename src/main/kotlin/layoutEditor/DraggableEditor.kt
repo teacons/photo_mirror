@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,8 +17,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Typeface
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,7 +67,20 @@ fun DraggableEditor(layers: List<Layer>, ratio: Float, selectedLayer: Layer?, on
                         .zIndex(index.toFloat())
 
                 when (layer) {
-                    is PhotoLayer -> {}
+                    is PhotoLayer -> {
+                        Box(
+                            modifier = editingModifier
+                                .size(with(LocalDensity.current) { DpSize(layer.width.toDp(), layer.height.toDp()) })
+                                .background(Color.Gray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = layer.photoId.toString(),
+                                style = MaterialTheme.typography.h3,
+                                color = Color.White
+                            )
+                        }
+                    }
                     is TextLayer -> {
                         Text(
                             text = layer.name,

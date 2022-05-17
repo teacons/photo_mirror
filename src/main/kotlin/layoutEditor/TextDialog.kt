@@ -10,8 +10,11 @@ import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -35,12 +38,12 @@ fun TextDialog(
     onCloseRequest: (TextLayer?) -> Unit
 ) {
     var text by rememberSaveable { mutableStateOf(layer?.name ?: "") }
-    var textError by remember { mutableStateOf(false) }
+    var textError by rememberSaveable { mutableStateOf(false) }
     var textFont by rememberSaveable { mutableStateOf(layer?.fontFamily ?: "") }
-    var fontError by remember { mutableStateOf(false) }
+    var fontError by rememberSaveable { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableStateOf(layer?.fontSize) }
-    var fontSizeError by remember { mutableStateOf(false) }
-    var color by remember { mutableStateOf(layer?.color ?: Color.Red) }
+    var fontSizeError by rememberSaveable { mutableStateOf(false) }
+    var color by rememberSaveable { mutableStateOf(layer?.color ?: Color.Red) }
 
     val dialogState = rememberDialogState(size = DpSize(500.dp, 700.dp))
     Dialog(

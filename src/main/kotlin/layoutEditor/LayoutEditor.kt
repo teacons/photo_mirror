@@ -38,6 +38,7 @@ fun LayoutEditor(ratio: Float) {
     var selectedLayer by remember { mutableStateOf<Layer?>(null) }
     var textDialogIsVisible by remember { mutableStateOf(false) }
     var imageDialogIsVisible by remember { mutableStateOf(false) }
+    var photoDialogIsVisible by remember { mutableStateOf(false) }
 
 
     HorizontalSplitPane(splitPaneState = splitterState) {
@@ -45,9 +46,18 @@ fun LayoutEditor(ratio: Float) {
             VerticalSplitPane(splitPaneState = hSplitterState) {
                 first(100.dp) {
                     ToolBar(
-                        onAddText = { textDialogIsVisible = true },
-                        onAddImage = { imageDialogIsVisible = true },
-                        onAddPhoto = {}
+                        onAddText = {
+                            selectedLayer = null
+                            textDialogIsVisible = true
+                        },
+                        onAddImage = {
+                            selectedLayer = null
+                            imageDialogIsVisible = true
+                        },
+                        onAddPhoto = {
+                            selectedLayer = null
+                            photoDialogIsVisible = true
+                        }
                     )
                 }
                 second {
@@ -104,10 +114,15 @@ fun LayoutEditor(ratio: Float) {
                                 is TextLayer -> {
                                     textDialogIsVisible = true
                                 }
-                                is PhotoLayer -> {}
+                                is PhotoLayer -> {
+                                    photoDialogIsVisible = true
+                                }
                             }
                         },
-                        onDelete = { layersList.remove(it) }
+                        onDelete = {
+                            layersList.remove(it)
+                            if (layersList.isEmpty()) selectedLayer = null
+                        }
                     )
                 }
             }
@@ -142,6 +157,22 @@ fun LayoutEditor(ratio: Float) {
                     }
                 } else
                     layersList.add(imageLayer)
+            }
+        }
+    }
+    if (photoDialogIsVisible) {
+        PhotoDialog(selectedLayer as PhotoLayer?) { photoLayer ->
+            photoDialogIsVisible = false
+            if (photoLayer != null) {
+                if (selectedLayer != null) {
+                    (selectedLayer as PhotoLayer).apply {
+                        name = photoLayer.name
+                        photoId = photoLayer.photoId
+                        width = photoLayer.width
+                        height = photoLayer.height
+                    }
+                } else
+                    layersList.add(photoLayer)
             }
         }
     }

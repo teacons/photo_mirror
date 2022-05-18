@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
+import loadImageBitmap
 import java.io.File
 import javax.imageio.ImageIO
 import javax.swing.JFileChooser

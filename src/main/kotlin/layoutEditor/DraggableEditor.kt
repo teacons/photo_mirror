@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import loadImageBitmap
 import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Typeface
 import kotlin.math.roundToInt

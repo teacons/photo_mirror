@@ -11,10 +11,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberDialogState
 import layoutEditor.LayoutEditor
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
 import org.jetbrains.compose.splitpane.HorizontalSplitPane
@@ -61,6 +63,9 @@ fun Settings() {
 
     var selectedMenuItem by remember { mutableStateOf(MenuItem.PhotoCamera) }
 
+    var layoutEditorIsVisible by remember { mutableStateOf(false) }
+
+    LayoutSettings(layoutEditorIsVisible) {layoutEditorIsVisible = false}
 
     HorizontalSplitPane(
         splitPaneState = splitterState
@@ -102,7 +107,8 @@ fun Settings() {
                         Box(Modifier)
                     }
                     MenuItem.Layout -> {
-                        LayoutSettings()
+                        layoutEditorIsVisible = true
+                        selectedMenuItem = MenuItem.PhotoCamera
                     }
                 }
             }
@@ -125,11 +131,15 @@ fun Settings() {
 }
 
 @Composable
-fun LayoutSettings() {
-    Dialog(
-        onCloseRequest = {}
-    ) {
-        LayoutEditor(210f / 297f)
+fun LayoutSettings(visible: Boolean, onCloseRequest: () -> Unit) {
+    val dialogState = rememberDialogState(size = DpSize.Unspecified)
+    if (visible) {
+        Dialog(
+            state = dialogState,
+            onCloseRequest = onCloseRequest
+        ) {
+            LayoutEditor(210f / 297f)
+        }
     }
 }
 

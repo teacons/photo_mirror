@@ -33,18 +33,18 @@ fun main() = singleWindowApplication {
     MaterialTheme {
         Main(
             textWelcome = "Бесплатное фото на память",
-            initialTimer = 5,
             shootText = "Сыр",
             shootEndText = "Фото будет готово через 15 секунд",
-            fontSize = 120,
+            backgroundFile = File("background.png"),
+            initialTimer = 5,
             fontFamily = FontFamily(Typeface(
                 Typeface.makeFromName(
                     "Comic Sans MS",
                     FontStyle.NORMAL
                 )
             )),
-            fontColor = Color.White,
-            File("background.png")
+            fontSize = 120,
+            fontColor = Color.White
         )
     }
 }
@@ -60,13 +60,13 @@ enum class MainState {
 @Composable
 fun Main(
     textWelcome: String,
-    initialTimer: Int,
     shootText: String,
     shootEndText: String,
-    fontSize: Int,
+    backgroundFile: File,
+    initialTimer: Int,
     fontFamily: FontFamily,
+    fontSize: Int,
     fontColor: Color,
-    backgroundFile: File
 ) {
 //    var countDownEnabled by remember { mutableStateOf(false) }
 
@@ -74,14 +74,13 @@ fun Main(
 
     var state by remember { mutableStateOf(MainState.Welcome) }
 
-    val interactionSource = remember { MutableInteractionSource() }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .then(
                 if (state == MainState.Welcome) Modifier.clickable(
-                    interactionSource = interactionSource,
+                    interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) { state = MainState.Timer } else Modifier),
         contentAlignment = Alignment.Center

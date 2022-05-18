@@ -18,11 +18,8 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
+import imageChooser
 import loadImageBitmap
-import java.io.File
-import javax.imageio.ImageIO
-import javax.swing.JFileChooser
-import javax.swing.filechooser.FileNameExtensionFilter
 
 
 @Composable
@@ -59,17 +56,7 @@ fun ImageDialog(
                     textStyle = MaterialTheme.typography.body1,
                 )
                 Button(
-                    onClick = {
-                        val chooser = JFileChooser()
-                        chooser.fileSelectionMode = JFileChooser.FILES_ONLY
-                        chooser.fileFilter = FileNameExtensionFilter(
-                            "Image files",
-                            *ImageIO.getReaderFileSuffixes()
-                        )
-                        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                            imageFile = File(chooser.selectedFile.path)
-                        }
-                    }
+                    onClick = { imageFile = imageChooser() }
                 ) {
                     Text(
                         text = "Выбрать",

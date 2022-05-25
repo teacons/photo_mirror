@@ -4,10 +4,7 @@ import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Text
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -30,6 +27,8 @@ import main.Main
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
 import org.jetbrains.compose.splitpane.HorizontalSplitPane
 import org.jetbrains.compose.splitpane.rememberSplitPaneState
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Typeface
 import java.awt.GraphicsEnvironment
@@ -54,43 +53,106 @@ class PrintServiceHelper(
 }
 
 class CameraHelper(
-    private val cameraModel: String,
-    val portInfo: String?
+    private val cameraName: String,
+//    val portInfo: String?
 ) : Spinnable {
 
-    override fun toString(): String = cameraModel
+    override fun toString(): String = cameraName
 
 }
 
-data class MainSettings(
-    val textWelcome: String,
-    val shootText: String,
-    val shootEndText: String,
-    val backgroundFile: File,
-    val initialTimer: Int,
-    val fontFamily: FontFamily,
-    val fontSize: Int,
-    val fontColor: Color
+data class GuestSettings(
+    val textWelcome: String?,
+    val shootText: String?,
+    val shootEndText: String?,
+    val backgroundFile: File?,
+    val initialTimer: Int?,
+    val fontFamily: String?,
+    val fontSize: Int?,
+    val fontColor: Color?
 )
+
+data class CameraSettings(
+    val cameraName: String?,
+)
+
+data class PrinterSettings(
+    val printService: PrintService?,
+)
+
+data class PhotoserverSettings(
+    val enabled: Boolean,
+
+    )
 
 @Composable
 @Preview
-fun Settings(onComplete: (MainSettings) -> Unit) {
-    var workWithPhotoServer by remember { mutableStateOf(false) }
+fun Settings(onComplete: (GuestSettings) -> Unit) {
 
-    var selectedCamera by rememberSaveable { mutableStateOf(CameraHelper("", null)) }
-    var selectedPrinter by rememberSaveable { mutableStateOf(PrintServiceHelper(null)) }
+    Database.connect("jdbc:sqlite:db.db", driver = "org.sqlite.JDBC")
+    transaction {
+        SchemaUtils.create(Settings)
+        commit()
+    }
+
+    val settingsFromDB = transaction {
+        Settings.selectAll().singleOrNull()
+    }
+
+    var cameraSettings by rememberSaveable {
+        mutableStateOf(
+            settingsFromDB?.let { settingsFromDB ->
+                CameraSettings(
+                    settingsFromDB[Settings.cameraName]
+                )
+            }
+        )
+    }
+
+    var printerSettings by rememberSaveable {
+        mutableStateOf(
+            settingsFromDB?.let { settingsFromDB ->
+                PrintServiceLookup.lookupPrintServices(null, null)
+                    .find { printService -> printService.name == settingsFromDB[Settings.printerName] }
+                    ?.let {
+                        PrinterSettings(it)
+                    }
+            }
+        )
+    }
+
+    var photoserverSettings by rememberSaveable {
+        mutableStateOf(
+            settingsFromDB?.let { settingsFromDB ->
+                PhotoserverSettings(settingsFromDB[Settings.photoserverEnabled])
+            }
+        )
+    }
+
+    val layoutCurrentId by rememberSaveable { mutableStateOf(settingsFromDB?.get(Settings.layoutCurrentId) ?: 0) }
+
+    var guestSettings by rememberSaveable {
+        mutableStateOf(settingsFromDB?.let {
+            GuestSettings(
+                it[Settings.guestHelloText],
+                it[Settings.guestShootText],
+                it[Settings.guestWaitText],
+                File(it[Settings.guestBackgroundFilepath]),
+                it[Settings.guestShootTimer],
+                it[Settings.guestTextFontFamily],
+                it[Settings.guestTextFontSize],
+                Color(it[Settings.guestTextFontColor].toULong())
+            )
+        })
+    }
 
     val splitterState = rememberSplitPaneState(moveEnabled = false)
-
-    val menuItems = MenuItem.values()
 
     var selectedMenuItem by remember { mutableStateOf(MenuItem.PhotoCamera) }
 
     var layoutEditorIsVisible by remember { mutableStateOf(false) }
 
-    var mainSettings by remember { mutableStateOf<MainSettings?>(null) }
-
+    val menuItems = MenuItem.values()
 
     LayoutSettings(layoutEditorIsVisible) { layoutEditorIsVisible = false }
 
@@ -114,7 +176,27 @@ fun Settings(onComplete: (MainSettings) -> Unit) {
                     }
                 }
                 Button(
-                    onClick = { mainSettings?.let { onComplete(it) } },
+                    onClick = {
+                        if (guestSettings != null && cameraSettings != null && printerSettings != null &&
+                            photoserverSettings != null
+                        ) {
+                            if (guestSettings!!.textWelcome != null && guestSettings!!.shootText != null &&
+                                guestSettings!!.shootEndText != null && guestSettings!!.backgroundFile != null &&
+                                guestSettings!!.initialTimer != null && guestSettings!!.fontFamily != null &&
+                                guestSettings!!.fontSize != null && guestSettings!!.fontColor != null &&
+                                cameraSettings!!.cameraName != null && printerSettings!!.printService != null
+                            ) {
+                                writeSettingsToDB(
+                                    cameraSettings!!,
+                                    printerSettings!!,
+                                    photoserverSettings!!,
+                                    layoutCurrentId,
+                                    guestSettings!!
+                                )
+                                onComplete(guestSettings!!)
+                            }
+                        }
+                    },
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.9f)
                 ) {
                     Text("Запуск")
@@ -126,30 +208,21 @@ fun Settings(onComplete: (MainSettings) -> Unit) {
                 modifier = Modifier.padding(15.dp)
             ) {
                 when (selectedMenuItem) {
-                    MenuItem.PhotoCamera -> PhotoCameraSettings(selectedCamera) { camera ->
-                        selectedCamera = camera
-//                        val camera = GPhoto2()
-//                        camera.open()
-//                        camera.capture() // image remains on camera
-//
-//                        val image: File = camera.captureAndDownload(false) // image saved to disk
-//
-//                        println(image.absolutePath)
-//
-//                        camera.close()
+                    MenuItem.PhotoCamera -> CameraSettings(cameraSettings) {
+                        cameraSettings = it
                     }
-                    MenuItem.Printer -> PrinterSettings(selectedPrinter) { printerService ->
-                        selectedPrinter = printerService
+                    MenuItem.Printer -> PrinterSettings(printerSettings) {
+                        printerSettings = it
                     }
-                    MenuItem.PhotoServer -> {
-                        Box(Modifier)
+                    MenuItem.PhotoServer -> PhotoserverSettings(photoserverSettings) {
+                        photoserverSettings = it
                     }
                     MenuItem.Layout -> {
                         layoutEditorIsVisible = true
                         selectedMenuItem = MenuItem.PhotoCamera
                     }
                     MenuItem.GuestScreen -> {
-                        GuestScreenSettings { mainSettings = it }
+                        GuestScreenSettings(guestSettings) { guestSettings = it }
                     }
                 }
             }
@@ -172,42 +245,33 @@ fun Settings(onComplete: (MainSettings) -> Unit) {
 }
 
 @Composable
-fun GuestScreenSettings(onSettingsFinished: (MainSettings) -> Unit) {
-    var textWelcome by remember { mutableStateOf("") }
-    var textWelcomeError by remember { mutableStateOf(false) }
-    var initialTimer by remember { mutableStateOf<Int?>(null) }
-    var initialTimerError by remember { mutableStateOf(false) }
-    var shootText by remember { mutableStateOf("") }
-    var shootTextError by remember { mutableStateOf(false) }
-    var shootEndText by remember { mutableStateOf("") }
-    var shootEndTextError by remember { mutableStateOf(false) }
-    var fontSize by remember { mutableStateOf<Int?>(null) }
-    var fontSizeError by remember { mutableStateOf(false) }
-    var textFont by remember { mutableStateOf("") }
-    var textFontError by remember { mutableStateOf(false) }
-    var color by remember { mutableStateOf(Color.Red) }
-    var imageFile by remember { mutableStateOf<File?>(null) }
-    var imageFileError by remember { mutableStateOf(false) }
+fun GuestScreenSettings(guestSettings: GuestSettings?, onSettingsFinished: (GuestSettings) -> Unit) {
+    var textWelcome by remember { mutableStateOf(guestSettings?.textWelcome) }
+    var textWelcomeError by remember { mutableStateOf(if (guestSettings != null) guestSettings.textWelcome == null else false) }
+    var initialTimer by remember { mutableStateOf(guestSettings?.initialTimer) }
+    var initialTimerError by remember { mutableStateOf(if (guestSettings != null) guestSettings.initialTimer == null else false) }
+    var shootText by remember { mutableStateOf(guestSettings?.shootText) }
+    var shootTextError by remember { mutableStateOf(if (guestSettings != null) guestSettings.shootText == null else false) }
+    var shootEndText by remember { mutableStateOf(guestSettings?.shootEndText) }
+    var shootEndTextError by remember { mutableStateOf(if (guestSettings != null) guestSettings.shootEndText == null else false) }
+    var fontSize by remember { mutableStateOf(guestSettings?.fontSize) }
+    var fontSizeError by remember { mutableStateOf(if (guestSettings != null) guestSettings.fontSize == null else false) }
+    var textFont by remember { mutableStateOf(guestSettings?.fontFamily) }
+    var textFontError by remember { mutableStateOf(if (guestSettings != null) guestSettings.fontFamily == null else false) }
+    var color by remember { mutableStateOf(guestSettings?.fontColor ?: Color.Red) }
+    var imageFile by remember { mutableStateOf(guestSettings?.backgroundFile) }
+    var imageFileError by remember { mutableStateOf(if (guestSettings != null) guestSettings.backgroundFile == null else false) }
 
     fun checkAndReturn() {
-        if (textWelcome.isNotEmpty() && initialTimer != null && shootText.isNotEmpty() && shootEndText.isNotEmpty()
-            && fontSize != null && textFont.isNotEmpty() && imageFile != null
-        ) onSettingsFinished(
-            MainSettings(
+        onSettingsFinished(
+            GuestSettings(
                 textWelcome,
                 shootText,
                 shootEndText,
-                imageFile!!,
-                initialTimer!!,
-                FontFamily(
-                    Typeface(
-                        Typeface.makeFromName(
-                            textFont,
-                            FontStyle.NORMAL
-                        )
-                    )
-                ),
-                fontSize!!,
+                imageFile,
+                initialTimer,
+                textFont,
+                fontSize,
                 color
             )
         )
@@ -217,10 +281,10 @@ fun GuestScreenSettings(onSettingsFinished: (MainSettings) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         OutlinedTextField(
-            value = textWelcome,
+            value = textWelcome ?: "",
             onValueChange = {
                 textWelcome = it
-                textWelcomeError = textWelcome.isEmpty()
+                textWelcomeError = textWelcome.isNullOrEmpty()
                 checkAndReturn()
             },
             maxLines = 2,
@@ -229,10 +293,10 @@ fun GuestScreenSettings(onSettingsFinished: (MainSettings) -> Unit) {
             modifier = Modifier.fillMaxWidth().height(80.dp)
         )
         OutlinedTextField(
-            value = shootText,
+            value = shootText ?: "",
             onValueChange = {
                 shootText = it
-                shootTextError = shootText.isEmpty()
+                shootTextError = shootText.isNullOrEmpty()
                 checkAndReturn()
             },
             maxLines = 2,
@@ -241,10 +305,10 @@ fun GuestScreenSettings(onSettingsFinished: (MainSettings) -> Unit) {
             modifier = Modifier.fillMaxWidth().height(80.dp)
         )
         OutlinedTextField(
-            value = shootEndText,
+            value = shootEndText ?: "",
             onValueChange = {
                 shootEndText = it
-                shootEndTextError = shootEndText.isEmpty()
+                shootEndTextError = shootEndText.isNullOrEmpty()
                 checkAndReturn()
             },
             maxLines = 2,
@@ -288,16 +352,16 @@ fun GuestScreenSettings(onSettingsFinished: (MainSettings) -> Unit) {
             }
         }
         val fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
-        SearchableSpinner(
+        Spinner(
             data = fonts.map { Font(it) },
-            value = textFont,
+            value = textFont ?: "",
             onSelectedChanges = {
                 textFont = it.toString()
-                textFontError = textFont.isEmpty()
+                textFontError = textFont.isNullOrEmpty()
                 checkAndReturn()
             },
             isError = textFontError,
-            label = { Text("Шрифт") }
+            label = { Text("Шрифт") },
         ) {
             Text(
                 text = (it as Font).toString(),
@@ -348,7 +412,41 @@ fun LayoutSettings(visible: Boolean, onCloseRequest: () -> Unit) {
 }
 
 @Composable
-fun PhotoCameraSettings(selectedCamera: CameraHelper, onSelectChanges: (CameraHelper) -> Unit) {
+fun PhotoserverSettings(photoserverSettings: PhotoserverSettings?, onSettingsFinished: (PhotoserverSettings) -> Unit) {
+    var photoserverEnabled by remember { mutableStateOf(photoserverSettings?.enabled ?: false) }
+
+    fun checkAndReturn() {
+        onSettingsFinished(PhotoserverSettings(photoserverEnabled))
+    }
+
+    Column {
+        Row {
+            Checkbox(
+                checked = photoserverEnabled,
+                onCheckedChange = {
+                    photoserverEnabled = !photoserverEnabled
+                    checkAndReturn()
+                },
+            )
+            Text("Включен")
+        }
+    }
+}
+
+@Composable
+fun CameraSettings(cameraSettings: CameraSettings?, onSettingsFinished: (CameraSettings) -> Unit) {
+    var selectedCamera by remember { mutableStateOf(cameraSettings?.cameraName ?: "") }
+
+    val cameraList = listOf(
+        CameraHelper("Камера 1"),
+        CameraHelper("Камера 2"),
+        CameraHelper("Камера 3"),
+    )
+
+    fun checkAndReturn() {
+        onSettingsFinished(CameraSettings(selectedCamera))
+    }
+
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -359,14 +457,13 @@ fun PhotoCameraSettings(selectedCamera: CameraHelper, onSelectChanges: (CameraHe
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val cameraList = listOf(
-                CameraHelper("Камера 1", null),
-                CameraHelper("Камера 2", null),
-                CameraHelper("Камера 3", null),
-            )
             Spinner(
-                cameraList, selectedCamera,
-                onSelectedChanges = { onSelectChanges(it as CameraHelper) }
+                data = cameraList,
+                value = selectedCamera,
+                onSelectedChanges = {
+                    selectedCamera = it.toString()
+                    checkAndReturn()
+                },
             ) {
                 Text(text = it.toString())
             }
@@ -375,7 +472,19 @@ fun PhotoCameraSettings(selectedCamera: CameraHelper, onSelectChanges: (CameraHe
 }
 
 @Composable
-fun PrinterSettings(selectedPrinter: PrintServiceHelper, onSelectChanges: (PrintServiceHelper) -> Unit) {
+fun PrinterSettings(printerSettings: PrinterSettings?, onSettingsFinished: (PrinterSettings) -> Unit) {
+    var selectedPrinter by remember { mutableStateOf(printerSettings?.printService) }
+
+    val printServices = PrintServiceLookup.lookupPrintServices(null, null)
+
+    fun checkAndReturn() {
+        if (selectedPrinter != null) onSettingsFinished(
+            PrinterSettings(
+                selectedPrinter!!
+            )
+        )
+    }
+
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -385,15 +494,47 @@ fun PrinterSettings(selectedPrinter: PrintServiceHelper, onSelectChanges: (Print
         }
         Spacer(modifier = Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val printServices = PrintServiceLookup.lookupPrintServices(null, null)
-            val printerList = printServices.map { PrintServiceHelper(it) }
             Spinner(
-                printerList, selectedPrinter,
-                onSelectedChanges = { onSelectChanges(it as PrintServiceHelper) }
+                data = printServices.map { PrintServiceHelper(it) },
+                value = selectedPrinter?.name ?: "",
+                onSelectedChanges = {
+                    selectedPrinter = printServices.find { printService -> printService.name == it.toString() }
+                    checkAndReturn()
+                }
             ) {
                 Text(text = it.toString())
             }
         }
+    }
+}
+
+fun writeSettingsToDB(
+    cameraSettings: CameraSettings,
+    printerSettings: PrinterSettings,
+    photoserverSettings: PhotoserverSettings,
+    layoutId: Int,
+    guestSettings: GuestSettings
+) {
+    transaction {
+        Settings.deleteAll()
+        Settings.insert {
+            it[cameraName] = cameraSettings.cameraName!!
+//                    ...
+            it[printerName] = printerSettings.printService!!.name
+//                    ...
+            it[photoserverEnabled] = photoserverSettings.enabled
+//                    ...
+            it[layoutCurrentId] = layoutId
+            it[guestHelloText] = guestSettings.textWelcome!!
+            it[guestShootText] = guestSettings.shootText!!
+            it[guestWaitText] = guestSettings.shootEndText!!
+            it[guestShootTimer] = guestSettings.initialTimer!!
+            it[guestBackgroundFilepath] = guestSettings.backgroundFile!!.absolutePath
+            it[guestTextFontFamily] = guestSettings.fontFamily!!
+            it[guestTextFontSize] = guestSettings.fontSize!!
+            it[guestTextFontColor] = guestSettings.fontColor!!.value.toLong()
+        }
+        commit()
     }
 }
 
@@ -428,7 +569,7 @@ fun main() = application {
 
     var state by remember { mutableStateOf(ApplicationState.Settings) }
 
-    var mainSettings by remember { mutableStateOf<MainSettings?>(null) }
+    var guestSettings by remember { mutableStateOf<GuestSettings?>(null) }
 
     when (state) {
         ApplicationState.Settings -> {
@@ -439,7 +580,7 @@ fun main() = application {
                 MaterialTheme {
                     Settings {
                         state = ApplicationState.Main
-                        mainSettings = it
+                        guestSettings = it
                     }
                 }
             }
@@ -475,16 +616,16 @@ fun main() = application {
 //                        fontColor = Color.White,
 //                        File("background.png")
 //                    )
-                    with(mainSettings!!) {
+                    with(guestSettings!!) {
                         Main(
-                            textWelcome,
-                            shootText,
-                            shootEndText,
-                            backgroundFile,
-                            initialTimer,
-                            fontFamily,
-                            fontSize,
-                            fontColor
+                            textWelcome!!,
+                            shootText!!,
+                            shootEndText!!,
+                            backgroundFile!!,
+                            initialTimer!!,
+                            fontFamily!!,
+                            fontSize!!,
+                            fontColor!!
                         )
                     }
                 }

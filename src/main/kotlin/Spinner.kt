@@ -1,9 +1,7 @@
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSizeIn
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -11,6 +9,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 
 interface Spinnable {
@@ -18,58 +17,14 @@ interface Spinnable {
     override fun toString(): String
 
 }
-
 @Composable
 fun Spinner(
-    data: List<Spinnable>,
-    selected: Spinnable,
-    onSelectedChanges: (Spinnable) -> Unit,
-    modifier: Modifier = Modifier,
-    Content: @Composable (Spinnable) -> Unit
-) {
-
-    var expanded by remember { mutableStateOf(false) }
-
-    Card(
-        backgroundColor = MaterialTheme.colors.background,
-        border = BorderStroke(1.dp, MaterialTheme.colors.primary),
-        modifier = Modifier
-            .clickable { expanded = !expanded }.then(modifier)
-
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Text(
-                text = selected.toString(),
-                style = MaterialTheme.typography.h6,
-                modifier = Modifier.weight(1f)
-            )
-
-            Icon(
-                imageVector = if (expanded) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
-                contentDescription = null,
-                tint = MaterialTheme.colors.primary
-            )
-            SpinnerDropdown(
-                expanded = expanded,
-                onExpandedChanges = { expanded = it },
-                data = data,
-                onSelectedChanges = onSelectedChanges,
-                Content = Content
-            )
-        }
-    }
-}
-
-@Composable
-fun SearchableSpinner(
     data: List<Spinnable>,
     value: String = "",
     onSelectedChanges: (Spinnable) -> Unit,
     isError: Boolean = false,
     modifier: Modifier = Modifier,
-    label: @Composable () -> Unit,
+    label: @Composable () -> Unit = {},
     Content: @Composable (Spinnable) -> Unit
 ) {
 
@@ -85,14 +40,14 @@ fun SearchableSpinner(
                 value = searchText,
                 onValueChange = {
                     searchText = it
-                    searchedData = data
-                        .filter { element -> element.toString().contains(searchText, ignoreCase = true) }
+                        searchedData = data
+                            .filter { element -> element.toString().contains(searchText, ignoreCase = true) }
                     expanded = true
                 },
                 label = label,
                 isError = isError,
                 textStyle = MaterialTheme.typography.h6,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).onFocusChanged { expanded = it.isFocused },
                 trailingIcon = {
                     Icon(
                         imageVector = if (expanded) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
@@ -148,9 +103,10 @@ fun SpinnerDropdown(
 fun SpinnerPreview() {
     MaterialTheme {
         Spinner(
-            List(5) { CameraHelper("Test $it", null) },
-            CameraHelper("Test 1", null),
-            onSelectedChanges = {}
+            List(5) { CameraHelper("Test $it") },
+            "Test 1",
+            onSelectedChanges = {},
+            label = {}
         ) {
             Text(text = it.toString())
         }

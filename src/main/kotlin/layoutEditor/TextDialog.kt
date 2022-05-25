@@ -1,7 +1,7 @@
 package layoutEditor
 
-import SearchableSpinner
 import Spinnable
+import Spinner
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -53,7 +53,7 @@ fun TextDialog(
     ) {
         Column(horizontalAlignment = Alignment.Start, modifier = Modifier.padding(8.dp)) {
             val fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
-            SearchableSpinner(
+            Spinner(
                 data = fonts.map { Font(it) },
                 value = textFont,
                 onSelectedChanges = { textFont = it.toString() },

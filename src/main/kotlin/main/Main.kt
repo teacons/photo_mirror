@@ -37,13 +37,8 @@ fun main() = singleWindowApplication {
             shootEndText = "Фото будет готово через 15 секунд",
             backgroundFile = File("background.png"),
             initialTimer = 5,
-            fontFamily = FontFamily(Typeface(
-                Typeface.makeFromName(
-                    "Comic Sans MS",
-                    FontStyle.NORMAL
-                )
-            )),
-            fontSize = 120,
+            fontFamilyName = "Comic Sans MS",
+            fontSize = 100,
             fontColor = Color.White
         )
     }
@@ -64,11 +59,20 @@ fun Main(
     shootEndText: String,
     backgroundFile: File,
     initialTimer: Int,
-    fontFamily: FontFamily,
+    fontFamilyName: String,
     fontSize: Int,
     fontColor: Color,
 ) {
-//    var countDownEnabled by remember { mutableStateOf(false) }
+
+    val fontFamily = FontFamily(
+        Typeface(
+            Typeface.makeFromName(
+                fontFamilyName,
+                FontStyle.NORMAL
+            )
+        )
+    )
+
 
     var count by remember { mutableStateOf(initialTimer) }
 

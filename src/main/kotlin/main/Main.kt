@@ -35,11 +35,11 @@ fun main() = singleWindowApplication {
             textWelcome = "Бесплатное фото на память",
             shootText = "Сыр",
             shootEndText = "Фото будет готово через 15 секунд",
-            backgroundFile = File("background.png"),
+            backgroundFile = "background.png",
             initialTimer = 5,
             fontFamilyName = "Comic Sans MS",
             fontSize = 100,
-            fontColor = Color.White
+            fontColor = Color.White.value.toLong()
         )
     }
 }
@@ -57,11 +57,11 @@ fun Main(
     textWelcome: String,
     shootText: String,
     shootEndText: String,
-    backgroundFile: File,
+    backgroundFile: String,
     initialTimer: Int,
     fontFamilyName: String,
     fontSize: Int,
-    fontColor: Color,
+    fontColor: Long,
 ) {
 
     val fontFamily = FontFamily(
@@ -90,7 +90,7 @@ fun Main(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            loadImageBitmap(backgroundFile),
+            loadImageBitmap(File(backgroundFile)),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             colorFilter = ColorFilter.tint(
@@ -108,7 +108,7 @@ fun Main(
                 text = textWelcome,
                 fontSize = fontSize.sp,
                 fontFamily = fontFamily,
-                color = fontColor,
+                color = Color(fontColor.toULong()),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.width(600.dp)
             )
@@ -142,7 +142,7 @@ fun Main(
                     text = "$targetCount",
                     fontSize = fontSize.sp,
                     fontFamily = fontFamily,
-                    color = fontColor,
+                    color = Color(fontColor.toULong()),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.width(600.dp)
                 )
@@ -164,7 +164,7 @@ fun Main(
                 text = shootText,
                 fontSize = fontSize.sp,
                 fontFamily = fontFamily,
-                color = fontColor,
+                color = Color(fontColor.toULong()),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.width(600.dp)
             )
@@ -185,7 +185,7 @@ fun Main(
                 text = shootEndText,
                 fontSize = fontSize.sp,
                 fontFamily = fontFamily,
-                color = fontColor,
+                color = Color(fontColor.toULong()),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.width(600.dp)
             )

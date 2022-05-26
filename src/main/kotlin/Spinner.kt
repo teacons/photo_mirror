@@ -17,6 +17,7 @@ interface Spinnable {
     override fun toString(): String
 
 }
+
 @Composable
 fun Spinner(
     data: List<Spinnable>,
@@ -40,8 +41,8 @@ fun Spinner(
                 value = searchText,
                 onValueChange = {
                     searchText = it
-                        searchedData = data
-                            .filter { element -> element.toString().contains(searchText, ignoreCase = true) }
+                    searchedData = data
+                        .filter { element -> element.toString().contains(searchText, ignoreCase = true) }
                     expanded = true
                 },
                 label = label,
@@ -103,7 +104,11 @@ fun SpinnerDropdown(
 fun SpinnerPreview() {
     MaterialTheme {
         Spinner(
-            List(5) { CameraHelper("Test $it") },
+            List(5) {
+                object : Spinnable {
+                    override fun toString() = "Test $it"
+                }
+            },
             "Test 1",
             onSelectedChanges = {},
             label = {}

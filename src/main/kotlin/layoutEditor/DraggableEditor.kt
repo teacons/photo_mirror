@@ -23,10 +23,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Typeface
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
 import androidx.compose.ui.zIndex
 import loadImageBitmap
 import org.jetbrains.skia.FontStyle
@@ -45,21 +42,14 @@ fun Offset.rotateBy(angle: Float): Offset {
 }
 
 @Composable
-fun DraggableEditor(layers: List<Layer>, ratio: Float, selectedLayer: Layer?, onSelectedChange: (Layer) -> Unit) {
-    Box(
-        modifier = Modifier
-            .background(Color.Gray)
-            .fillMaxSize()
-            .onSizeChanged { println(" ${it.height} ${it.width}") }
-        ,
-        contentAlignment = Alignment.Center
-    ) {
+fun DraggableEditor(layers: List<Layer>, ratio: Float, selectedLayer: Layer?, onSelectedChange: (Layer) -> Unit, onSizeChange: (IntSize) -> Unit) {
         Box(
             modifier = Modifier
                 .padding(4.dp)
                 .clipToBounds()
                 .background(Color.White)
                 .aspectRatio(ratio)
+                .onSizeChanged(onSizeChange)
             ,
             contentAlignment = Alignment.Center
         ) {
@@ -124,5 +114,4 @@ fun DraggableEditor(layers: List<Layer>, ratio: Float, selectedLayer: Layer?, on
                 }
             }
         }
-    }
 }

@@ -1,16 +1,19 @@
 package layoutEditor
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Slider
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.singleWindowApplication
 import org.burnoutcrew.reorderable.move
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
@@ -19,16 +22,23 @@ import org.jetbrains.compose.splitpane.VerticalSplitPane
 import org.jetbrains.compose.splitpane.rememberSplitPaneState
 import kotlin.math.roundToInt
 
-fun main() = singleWindowApplication {
+fun main() = singleWindowApplication(WindowState(WindowPlacement.Maximized)) {
     MaterialTheme {
-        LayoutEditor(210f / 297f)
+        LayoutEditor(null, 210f / 297f, false) {}
     }
 }
 
+data class LayoutSettings(
+    val layersList: List<Layer>,
+    val size: IntSize
+)
+
 @OptIn(ExperimentalSplitPaneApi::class)
 @Composable
-fun LayoutEditor(ratio: Float) {
-    val layersList = remember { mutableStateListOf<Layer>() }
+fun LayoutEditor(layoutSettings: LayoutSettings?, ratio: Float, requestToClose: Boolean, onComplete: (LayoutSettings) -> Unit) {
+    val layersList = if (layoutSettings != null) {
+        remember { mutableStateListOf(*layoutSettings.layersList.toTypedArray()) }
+    } else remember { mutableStateListOf() }
     val splitterState = rememberSplitPaneState(1f)
     val hSplitterState = rememberSplitPaneState(moveEnabled = false)
     val toolsSplitterState = rememberSplitPaneState(moveEnabled = false)
@@ -36,6 +46,9 @@ fun LayoutEditor(ratio: Float) {
     var textDialogIsVisible by remember { mutableStateOf(false) }
     var imageDialogIsVisible by remember { mutableStateOf(false) }
     var photoDialogIsVisible by remember { mutableStateOf(false) }
+    var sizeDraggableEditor by remember { mutableStateOf(IntSize.Zero) }
+
+    if (requestToClose) onComplete(LayoutSettings(layersList, sizeDraggableEditor))
 
 
     HorizontalSplitPane(splitPaneState = splitterState) {
@@ -58,11 +71,20 @@ fun LayoutEditor(ratio: Float) {
                     )
                 }
                 second {
-                    DraggableEditor(
-                        layersList,
-                        ratio,
-                        selectedLayer,
-                        onSelectedChange = { selectedLayer = it })
+                    Box(
+                        modifier = Modifier
+                            .background(Color.Gray)
+                            .fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        DraggableEditor(
+                            layersList,
+                            ratio,
+                            selectedLayer,
+                            onSelectedChange = { selectedLayer = it },
+                            onSizeChange = { sizeDraggableEditor = it }
+                        )
+                    }
                 }
             }
         }
@@ -180,7 +202,7 @@ fun LayoutEditor(ratio: Float) {
 @Composable
 fun LayoutEditorPreview() {
     MaterialTheme {
-        LayoutEditor(210f / 297f)
+        LayoutEditor(null,210f / 297f, false) {}
     }
 }
 

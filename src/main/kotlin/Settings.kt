@@ -17,12 +17,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Typeface
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import com.godaddy.android.colorpicker.harmony.ColorHarmonyMode
 import com.godaddy.android.colorpicker.harmony.HarmonyColorPicker
-import layoutEditor.Font
-import layoutEditor.LayoutEditor
+import layoutEditor.*
 import main.Main
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
 import org.jetbrains.compose.splitpane.HorizontalSplitPane
@@ -56,7 +56,7 @@ fun Settings(onComplete: (Settings) -> Unit) {
 
     val settings by rememberSaveable {
         mutableStateOf(
-            transaction {
+            transaction() {
                 try {
                     Settings.all().first()
                 } catch (e: NoSuchElementException) {
@@ -74,7 +74,7 @@ fun Settings(onComplete: (Settings) -> Unit) {
 
     val menuItems = MenuItem.values()
 
-    LayoutSettings(layoutEditorIsVisible) { layoutEditorIsVisible = false }
+    LayoutSettings(settings, layoutEditorIsVisible) { layoutEditorIsVisible = false }
 
     HorizontalSplitPane(
         splitPaneState = splitterState
@@ -312,13 +312,77 @@ fun GuestScreenSettings(settings: Settings) {
 }
 
 @Composable
-fun LayoutSettings(visible: Boolean, onCloseRequest: () -> Unit) {
+fun LayoutSettings(settings: Settings, visible: Boolean, onCloseRequest: (LayoutSettings) -> Unit) {
+    var requestToClose by remember { mutableStateOf(false) }
     if (visible) {
         Dialog(
             state = rememberDialogState(size = DpSize.Unspecified),
-            onCloseRequest = onCloseRequest
+            onCloseRequest = { requestToClose = true }
         ) {
-            LayoutEditor(210f / 297f) {}
+            LayoutEditor(
+                transaction { settings.layout }?.let {
+                    LayoutSettings(it.getLayers(), IntSize(it.width.toInt(), it.height.toInt()))
+                },
+                210f / 297f,
+                requestToClose
+            ) {
+                transaction(db = settings.db) {
+                    val layout = if (settings.layout == null) {
+                        Layout.new {
+                            name = "Temp"
+                            width = it.size.width.toFloat()
+                            height = it.size.height.toFloat()
+                        }
+                    } else {
+                        settings.layout!!
+                    }
+
+                    layout.removeAllLayers()
+
+                    it.layersList.forEachIndexed { index, layer ->
+                        when (layer) {
+                            is TextLayer -> LayoutTextLayer.new {
+                                name = layer.name
+                                offsetX = layer.offset.value.x
+                                offsetY = layer.offset.value.y
+                                scale = layer.scale.value
+                                rotation = layer.rotation.value
+                                fontFamily = layer.fontFamily
+                                fontSize = layer.fontSize
+                                fontColor = layer.color.value.toLong()
+                                layoutId = layout
+                                zIndex = index
+                            }
+                            is ImageLayer -> LayoutImageLayer.new {
+                                name = layer.name
+                                offsetX = layer.offset.value.x
+                                offsetY = layer.offset.value.y
+                                scale = layer.scale.value
+                                rotation = layer.rotation.value
+                                file = layer.imageFile.absolutePath
+                                layoutId = layout
+                                zIndex = index
+                            }
+                            is PhotoLayer -> LayoutPhotoLayer.new {
+                                name = layer.name
+                                offsetX = layer.offset.value.x
+                                offsetY = layer.offset.value.y
+                                scale = layer.scale.value
+                                rotation = layer.rotation.value
+                                photoId = layer.photoId
+                                width = layer.width
+                                height = layer.height
+                                layoutId = layout
+                                zIndex = index
+                            }
+                        }
+                    }
+                    settings.layout = layout
+                    commit()
+                }
+                requestToClose = false
+                onCloseRequest(it)
+            }
         }
     }
 }

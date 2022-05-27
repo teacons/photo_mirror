@@ -1,7 +1,16 @@
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import layoutEditor.ImageLayer
+import layoutEditor.Layer
+import layoutEditor.PhotoLayer
+import layoutEditor.TextLayer
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
+import org.jetbrains.exposed.sql.transactions.transaction
+import java.io.File
 
 object SettingsTable : IntIdTable() {
     val cameraName = text("camera_name").nullable()
@@ -23,6 +32,7 @@ object SettingsTable : IntIdTable() {
     val guestTextFontSize = integer("guest_text_font_size").nullable()
     val guestTextFontColor = long("guest_text_font_color").nullable()
 }
+
 class Settings(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Settings>(SettingsTable)
 
@@ -59,13 +69,42 @@ object Layouts : IntIdTable() {
 class Layout(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Layout>(Layouts)
 
-    val name by Layouts.name
-    val width by Layouts.width
-    val height by Layouts.height
+    var name by Layouts.name
+    var width by Layouts.width
+    var height by Layouts.height
 
-    val textLayers by LayoutTextLayer referrersOn LayoutTextLayers.layoutId
-    val imageLayers by LayoutImageLayer referrersOn LayoutImageLayers.layoutId
-    val photoLayers by LayoutPhotoLayer referrersOn LayoutPhotoLayers.layoutId
+    private val textLayers by LayoutTextLayer referrersOn LayoutTextLayers.layoutId
+    private val imageLayers by LayoutImageLayer referrersOn LayoutImageLayers.layoutId
+    private val photoLayers by LayoutPhotoLayer referrersOn LayoutPhotoLayers.layoutId
+
+    fun removeAllLayers() {
+        transaction {
+            textLayers.forEach { it.delete() }
+            imageLayers.forEach { it.delete() }
+            photoLayers.forEach { it.delete() }
+            commit()
+        }
+    }
+
+    fun getLayers(): List<Layer> {
+        return transaction {
+            val layers =
+                Array<Layer?>((textLayers.count() + imageLayers.count() + photoLayers.count()).toInt()) { null }
+
+            textLayers.forEach {
+                layers[it.zIndex] = it.toTextLayer()
+            }
+            imageLayers.forEach {
+                layers[it.zIndex] = it.toImageLayer()
+            }
+            photoLayers.forEach {
+                layers[it.zIndex] = it.toPhotoLayer()
+            }
+
+            layers
+        }.filterNotNull()
+
+    }
 }
 
 object LayoutTextLayers : IntIdTable() {
@@ -78,22 +117,34 @@ object LayoutTextLayers : IntIdTable() {
     val fontSize = integer("font_size")
     val fontColor = long("font_color")
     val layoutId = reference("layout_id", Layouts)
-    val zIndex = float("z_index")
+    val zIndex = integer("z_index")
 }
 
 class LayoutTextLayer(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<LayoutTextLayer>(LayoutTextLayers)
 
-    val name by LayoutTextLayers.name
-    val offsetX by LayoutTextLayers.offsetX
-    val offsetY by LayoutTextLayers.offsetY
-    val scale by LayoutTextLayers.scale
-    val rotation by LayoutTextLayers.rotation
-    val fontFamily by LayoutTextLayers.fontFamily
-    val fontSize by LayoutTextLayers.fontSize
-    val fontColor by LayoutTextLayers.fontColor
-    val layoutId by Layout referencedOn LayoutTextLayers.layoutId
-    val zIndex by LayoutTextLayers.zIndex
+    var name by LayoutTextLayers.name
+    var offsetX by LayoutTextLayers.offsetX
+    var offsetY by LayoutTextLayers.offsetY
+    var scale by LayoutTextLayers.scale
+    var rotation by LayoutTextLayers.rotation
+    var fontFamily by LayoutTextLayers.fontFamily
+    var fontSize by LayoutTextLayers.fontSize
+    var fontColor by LayoutTextLayers.fontColor
+    var layoutId by Layout referencedOn LayoutTextLayers.layoutId
+    var zIndex by LayoutTextLayers.zIndex
+
+    fun toTextLayer(): TextLayer {
+        return TextLayer(
+            name,
+            mutableStateOf(Offset(offsetX, offsetY)),
+            mutableStateOf(scale),
+            mutableStateOf(rotation),
+            fontFamily,
+            fontSize,
+            Color(fontColor.toULong())
+        )
+    }
 }
 
 object LayoutImageLayers : IntIdTable() {
@@ -104,20 +155,30 @@ object LayoutImageLayers : IntIdTable() {
     val rotation = float("rotation")
     val file = text("file")
     val layoutId = reference("layout_id", Layouts)
-    val zIndex = float("z_index")
+    val zIndex = integer("z_index")
 }
 
 class LayoutImageLayer(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<LayoutImageLayer>(LayoutImageLayers)
 
-    val name by LayoutImageLayers.name
-    val offsetX by LayoutImageLayers.offsetX
-    val offsetY by LayoutImageLayers.offsetY
-    val scale by LayoutImageLayers.scale
-    val rotation by LayoutImageLayers.rotation
-    val file by LayoutImageLayers.file
+    var name by LayoutImageLayers.name
+    var offsetX by LayoutImageLayers.offsetX
+    var offsetY by LayoutImageLayers.offsetY
+    var scale by LayoutImageLayers.scale
+    var rotation by LayoutImageLayers.rotation
+    var file by LayoutImageLayers.file
     var layoutId by Layout referencedOn LayoutImageLayers.layoutId
-    val zIndex by LayoutImageLayers.zIndex
+    var zIndex by LayoutImageLayers.zIndex
+
+    fun toImageLayer(): ImageLayer {
+        return ImageLayer(
+            name,
+            mutableStateOf(Offset(offsetX, offsetY)),
+            mutableStateOf(scale),
+            mutableStateOf(rotation),
+            File(file)
+        )
+    }
 }
 
 object LayoutPhotoLayers : IntIdTable() {
@@ -130,20 +191,32 @@ object LayoutPhotoLayers : IntIdTable() {
     val width = float("width")
     val height = float("height")
     val layoutId = reference("layout_id", Layouts)
-    val zIndex = float("z_index")
+    val zIndex = integer("z_index")
 }
 
 class LayoutPhotoLayer(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<LayoutPhotoLayer>(LayoutPhotoLayers)
 
-    val name by LayoutPhotoLayers.name
-    val offsetX by LayoutPhotoLayers.offsetX
-    val offsetY by LayoutPhotoLayers.offsetY
-    val scale by LayoutPhotoLayers.scale
-    val rotation by LayoutPhotoLayers.rotation
-    val photoId by LayoutPhotoLayers.photoId
-    val width by LayoutPhotoLayers.width
-    val height by LayoutPhotoLayers.height
+    var name by LayoutPhotoLayers.name
+    var offsetX by LayoutPhotoLayers.offsetX
+    var offsetY by LayoutPhotoLayers.offsetY
+    var scale by LayoutPhotoLayers.scale
+    var rotation by LayoutPhotoLayers.rotation
+    var photoId by LayoutPhotoLayers.photoId
+    var width by LayoutPhotoLayers.width
+    var height by LayoutPhotoLayers.height
     var layoutId by Layout referencedOn LayoutPhotoLayers.layoutId
-    val zIndex by LayoutPhotoLayers.zIndex
+    var zIndex by LayoutPhotoLayers.zIndex
+
+    fun toPhotoLayer(): PhotoLayer {
+        return PhotoLayer(
+            name,
+            mutableStateOf(Offset(offsetX, offsetY)),
+            mutableStateOf(scale),
+            mutableStateOf(rotation),
+            photoId,
+            width,
+            height
+        )
+    }
 }

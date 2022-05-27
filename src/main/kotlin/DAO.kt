@@ -20,6 +20,7 @@ object SettingsTable : IntIdTable() {
 
     //    ...
     val photoserverEnabled = bool("photoserver_enabled").nullable()
+    val photoserverAddress = text("photoserver_address").nullable()
 
     //    ...
     val layoutCurrentId = reference("layout_current_id", Layouts).nullable()
@@ -47,6 +48,7 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
 //    }
 
     var photoserverEnabled by SettingsTable.photoserverEnabled
+    var photoserverAddress by SettingsTable.photoserverAddress
 
     var layout by Layout optionalReferencedOn SettingsTable.layoutCurrentId
 

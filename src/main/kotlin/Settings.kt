@@ -97,13 +97,15 @@ fun Settings(onComplete: (Settings) -> Unit) {
                 }
                 Button(
                     onClick = {
-                        with(settings) {
-                            if (cameraName != null && printerName != null && photoserverEnabled != null &&
-                                layout != null && guestHelloText != null && guestShootText != null &&
-                                guestWaitText != null && guestShootTimer != null && guestBackgroundFilepath != null &&
-                                guestTextFontFamily != null && guestTextFontSize != null && guestTextFontColor != null
-                            ) {
-                                onComplete(settings)
+                        transaction {
+                            with(settings) {
+                                if (cameraName != null && printerName != null && photoserverEnabled != null &&
+                                    layout != null && guestHelloText != null && guestShootText != null &&
+                                    guestWaitText != null && guestShootTimer != null && guestBackgroundFilepath != null &&
+                                    guestTextFontFamily != null && guestTextFontSize != null && guestTextFontColor != null
+                                ) {
+                                    onComplete(settings)
+                                }
                             }
                         }
                     },

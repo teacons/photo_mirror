@@ -1,4 +1,4 @@
-package main
+package guest
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
@@ -31,7 +31,7 @@ import java.io.File
 
 fun main() = singleWindowApplication {
     MaterialTheme {
-        Main(
+        Guest(
             textWelcome = "Бесплатное фото на память",
             shootText = "Сыр",
             shootEndText = "Фото будет готово через 15 секунд",
@@ -53,7 +53,7 @@ enum class MainState {
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun Main(
+fun Guest(
     textWelcome: String,
     shootText: String,
     shootEndText: String,

@@ -77,7 +77,9 @@ fun Settings(onComplete: (Settings) -> Unit) {
                     onClick = {
                         transaction {
                             with(settings) {
-                                if (cameraName != null && printerName != null && photoserverEnabled != null &&
+                                if (cameraName != null && printerName != null && printerMediaSizeName != null &&
+                                    photoserverEnabled != null &&
+                                    (if (photoserverEnabled!!) photoserverAddress != null else true) &&
                                     layout != null && guestHelloText != null && guestShootText != null &&
                                     guestWaitText != null && guestShootTimer != null && guestBackgroundFilepath != null &&
                                     guestTextFontFamily != null && guestTextFontSize != null && guestTextFontColor != null

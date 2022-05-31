@@ -29,6 +29,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-dao:0.38.2")
     implementation("org.xerial:sqlite-jdbc:3.36.0.3")
     implementation("commons-validator:commons-validator:1.7")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
 }
 
 tasks.withType<KotlinCompile> {

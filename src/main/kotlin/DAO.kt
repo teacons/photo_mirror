@@ -42,12 +42,6 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
 
     var printerMediaSizeName by SettingsTable.printerMediaSizeName
 
-//    var printerService by observable(
-//        PrintServiceLookup.lookupPrintServices(null, null)
-//            .find { printService -> printService.name == printerName }) { _, _, newValue ->
-//        printerName = newValue?.name
-//    }
-
     var photoserverEnabled by SettingsTable.photoserverEnabled
     var photoserverAddress by SettingsTable.photoserverAddress
 

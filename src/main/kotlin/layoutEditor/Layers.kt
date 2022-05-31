@@ -22,6 +22,17 @@ data class PhotoLayer(
     var height: Float
 ) : Layer(name, offset, scale, rotation)
 
+data class PhotoLayerWithPhoto(
+    override val name: String,
+    override var offset: MutableState<Offset>,
+    override var scale: MutableState<Float>,
+    override var rotation: MutableState<Float>,
+    var photoId: Int,
+    var width: Float,
+    var height: Float,
+    var photoFile: File
+) : Layer(name, offset, scale, rotation)
+
 
 data class TextLayer(
     override var name: String,

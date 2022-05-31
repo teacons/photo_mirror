@@ -39,6 +39,7 @@ compose.desktop {
     application {
         mainClass = "MainKt"
         nativeDistributions {
+            modules("java.sql")
             targetFormats(TargetFormat.Msi, TargetFormat.Deb)
             packageName = "photo_mirror"
             packageVersion = "1.0.0"

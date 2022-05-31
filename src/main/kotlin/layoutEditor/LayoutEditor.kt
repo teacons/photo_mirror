@@ -9,8 +9,8 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
@@ -24,13 +24,13 @@ import kotlin.math.roundToInt
 
 fun main() = singleWindowApplication(WindowState(WindowPlacement.Maximized)) {
     MaterialTheme {
-        LayoutEditor(LayoutSettings(emptyList(), Size(210f, 297f)), false) {}
+        LayoutEditor(LayoutSettings(emptyList(), IntSize(210, 297)), false) {}
     }
 }
 
 data class LayoutSettings(
     val layersList: List<Layer>,
-    val size: Size,
+    val size: IntSize,
 )
 
 @OptIn(ExperimentalSplitPaneApi::class)
@@ -44,7 +44,7 @@ fun LayoutEditor(layoutSettings: LayoutSettings, requestToClose: Boolean, onRequ
     var textDialogIsVisible by remember { mutableStateOf(false) }
     var imageDialogIsVisible by remember { mutableStateOf(false) }
     var photoDialogIsVisible by remember { mutableStateOf(false) }
-    var sizeDraggableEditor by remember { mutableStateOf(Size.Zero) }
+    var sizeDraggableEditor by remember { mutableStateOf(IntSize.Zero) }
 
     if (requestToClose) onRequestToClose(LayoutSettings(layersList, sizeDraggableEditor))
 
@@ -200,7 +200,7 @@ fun LayoutEditor(layoutSettings: LayoutSettings, requestToClose: Boolean, onRequ
 @Composable
 fun LayoutEditorPreview() {
     MaterialTheme {
-        LayoutEditor(LayoutSettings(emptyList(), Size(210f, 297f)), false) {}
+        LayoutEditor(LayoutSettings(emptyList(), IntSize(210, 297)), false) {}
     }
 }
 

@@ -17,7 +17,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,17 +46,17 @@ fun Offset.rotateBy(angle: Float): Offset {
 @Composable
 fun DraggableEditor(
     layers: List<Layer>,
-    size: Size,
+    size: IntSize,
     selectedLayer: Layer?,
     onSelectedChange: (Layer) -> Unit,
-    onSizeChange: (Size) -> Unit
+    onSizeChange: (IntSize) -> Unit
 ) {
     Box(
         modifier = Modifier
             .clipToBounds()
             .background(Color.White)
-            .aspectRatio(size.width / size.height)
-            .onSizeChanged { onSizeChange(it.toSize()) },
+            .aspectRatio(size.width.toFloat() / size.height.toFloat())
+            .onSizeChanged(onSizeChange),
         contentAlignment = Alignment.Center
     ) {
         layers.forEachIndexed { index, layer ->
@@ -90,7 +89,7 @@ fun DraggableEditor(
                         Text(
                             text = layer.photoId.toString(),
                             fontSize = 25.em,
-                            color = Color.White
+                            color = Color.White,
                         )
                     }
                 }
@@ -116,6 +115,17 @@ fun DraggableEditor(
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
                         modifier = editingModifier
+                    )
+                }
+                is PhotoLayerWithPhoto -> {
+                    Image(
+                        bitmap = loadImageBitmap(layer.photoFile),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(with(LocalDensity.current) {
+                            DpSize(layer.width.toDp(), layer.height.toDp())
+                        })
+                            .then(editingModifier)
                     )
                 }
             }

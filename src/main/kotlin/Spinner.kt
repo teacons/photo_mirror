@@ -31,9 +31,9 @@ fun Spinner(
 
     var expanded by remember { mutableStateOf(false) }
 
-    var searchText by remember { mutableStateOf(value) }
+    var searchText by remember(value) { mutableStateOf(value) }
 
-    var searchedData by remember { mutableStateOf(data) }
+    var filter by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
         Row {
@@ -41,8 +41,7 @@ fun Spinner(
                 value = searchText,
                 onValueChange = {
                     searchText = it
-                    searchedData = data
-                        .filter { element -> element.toString().contains(searchText, ignoreCase = true) }
+                    filter = true
                     expanded = true
                 },
                 label = label,
@@ -61,7 +60,9 @@ fun Spinner(
             SpinnerDropdown(
                 expanded = expanded,
                 onExpandedChanges = { expanded = it },
-                data = searchedData,
+                data = if (filter) data.filter { element ->
+                    element.toString().contains(searchText, ignoreCase = true)
+                } else data,
                 onSelectedChanges = {
                     searchText = it.toString()
                     onSelectedChanges(it)

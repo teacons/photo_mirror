@@ -1,7 +1,7 @@
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntSize
 import layoutEditor.*
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
@@ -15,6 +15,7 @@ object SettingsTable : IntIdTable() {
 
     //    ...
     val printerName = text("printer_name").nullable()
+    val printerMediaSizeName = text("printer_media_size_name").nullable()
 
     //    ...
     val photoserverEnabled = bool("photoserver_enabled").nullable()
@@ -39,6 +40,8 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
 
     var printerName by SettingsTable.printerName
 
+    var printerMediaSizeName by SettingsTable.printerMediaSizeName
+
 //    var printerService by observable(
 //        PrintServiceLookup.lookupPrintServices(null, null)
 //            .find { printService -> printService.name == printerName }) { _, _, newValue ->
@@ -62,8 +65,10 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
 
 object Layouts : IntIdTable() {
     val name = text("name").uniqueIndex()
-    val width = float("width")
-    val height = float("height")
+    val width = integer("width").nullable()
+    val height = integer("height").nullable()
+    val ratioWidth = integer("ratio_width")
+    val ratioHeight = integer("ratio_height")
 }
 
 class Layout(id: EntityID<Int>) : IntEntity(id) {
@@ -72,13 +77,15 @@ class Layout(id: EntityID<Int>) : IntEntity(id) {
     var name by Layouts.name
     var width by Layouts.width
     var height by Layouts.height
+    var ratioWidth by Layouts.ratioWidth
+    var ratioHeight by Layouts.ratioHeight
 
     private val textLayers by LayoutTextLayer referrersOn LayoutTextLayers.layoutId
     private val imageLayers by LayoutImageLayer referrersOn LayoutImageLayers.layoutId
     private val photoLayers by LayoutPhotoLayer referrersOn LayoutPhotoLayers.layoutId
 
     fun toLayoutSettings(): LayoutSettings {
-        return LayoutSettings(getLayers(), Size(width, height))
+        return LayoutSettings(getLayers(), IntSize(ratioWidth, ratioHeight))
     }
 
     fun removeAllLayers() {
@@ -87,6 +94,12 @@ class Layout(id: EntityID<Int>) : IntEntity(id) {
             imageLayers.forEach { it.delete() }
             photoLayers.forEach { it.delete() }
             commit()
+        }
+    }
+
+    fun getPhotoLayersMaxId(): Int {
+        return transaction {
+            photoLayers.maxOf { it.photoId }
         }
     }
 

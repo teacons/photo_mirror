@@ -17,12 +17,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.renderComposeScene
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
@@ -135,25 +135,33 @@ fun LayoutSettings() {
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val lImage = renderComposeScene(layout.width.toInt(), layout.height.toInt()) {
-                        DraggableEditor(
-                            layout.getLayers(),
-                            Size(layout.width, layout.height),
-                            null,
-                            {},
-                            {}
-                        )
+                    val lImage = layout.width?.let { width ->
+                        layout.height?.let { height ->
+                            renderComposeScene(width, height) {
+                                DraggableEditor(
+                                    layout.getLayers(),
+                                    IntSize(width, height),
+                                    null,
+                                    {},
+                                    {}
+                                )
+                            }
+                        }
                     }
 
                     Column(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Image(
-                            bitmap = lImage.toComposeImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier.border(BorderStroke(2.dp, Color.Black))
-                        )
+                        if (lImage != null) {
+                            Image(
+                                bitmap = lImage.toComposeImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier.border(BorderStroke(2.dp, Color.Black))
+                            )
+                        } else {
+                            CircularProgressIndicator()
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -213,9 +221,9 @@ fun DialogLayoutEditor(layoutSettings: LayoutSettings, onCloseRequest: (LayoutSe
 fun DialogLayoutCreate(layout: Layout?, onFinish: (Layout?, Boolean) -> Unit) {
     var layoutName by remember { mutableStateOf(layout?.name ?: "") }
     var layoutNameError by remember { mutableStateOf(false) }
-    var layoutWidth by remember { mutableStateOf(layout?.width?.toInt()?.toString() ?: "") }
+    var layoutWidth by remember { mutableStateOf(layout?.width?.toString() ?: "") }
     var layoutWidthError by remember { mutableStateOf(false) }
-    var layoutHeight by remember { mutableStateOf(layout?.height?.toInt()?.toString() ?: "") }
+    var layoutHeight by remember { mutableStateOf(layout?.height?.toString() ?: "") }
     var layoutHeightError by remember { mutableStateOf(false) }
     Dialog(
         state = rememberDialogState(height = Dp.Unspecified),
@@ -241,7 +249,7 @@ fun DialogLayoutCreate(layout: Layout?, onFinish: (Layout?, Boolean) -> Unit) {
                 value = layoutWidth,
                 onValueChange = {
                     layoutWidth = it
-                    layoutWidthError = layoutWidth.toFloatOrNull() == null || layoutWidth.isEmpty()
+                    layoutWidthError = layoutWidth.toIntOrNull() == null || layoutWidth.isEmpty()
                 },
                 maxLines = 1,
                 isError = layoutWidthError,
@@ -252,7 +260,7 @@ fun DialogLayoutCreate(layout: Layout?, onFinish: (Layout?, Boolean) -> Unit) {
                 value = layoutHeight,
                 onValueChange = {
                     layoutHeight = it
-                    layoutHeightError = layoutHeight.toFloatOrNull() == null || layoutHeight.isEmpty()
+                    layoutHeightError = layoutHeight.toIntOrNull() == null || layoutHeight.isEmpty()
                 },
                 maxLines = 1,
                 isError = layoutHeightError,
@@ -264,18 +272,18 @@ fun DialogLayoutCreate(layout: Layout?, onFinish: (Layout?, Boolean) -> Unit) {
                     onClick = {
                         if (layoutName.isNotEmpty() &&
                             transaction { Layout.find { Layouts.name eq layoutName }.empty() } &&
-                            layoutWidth.toFloatOrNull() != null && layoutHeight.toFloatOrNull() != null
+                            layoutWidth.toIntOrNull() != null && layoutHeight.toIntOrNull() != null
                         ) {
                             transaction {
                                 onFinish(
                                     layout?.apply {
                                         name = layoutName
-                                        width = layoutWidth.toFloat()
-                                        height = layoutHeight.toFloat()
+                                        ratioWidth = layoutWidth.toInt()
+                                        ratioHeight = layoutHeight.toInt()
                                     } ?: Layout.new {
                                         name = layoutName
-                                        width = layoutWidth.toFloat()
-                                        height = layoutHeight.toFloat()
+                                        ratioWidth = layoutWidth.toInt()
+                                        ratioHeight = layoutHeight.toInt()
                                     },
                                     true
                                 )

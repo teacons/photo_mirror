@@ -1,10 +1,8 @@
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import layoutEditor.ImageLayer
-import layoutEditor.Layer
-import layoutEditor.PhotoLayer
-import layoutEditor.TextLayer
+import layoutEditor.*
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -63,7 +61,7 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
 }
 
 object Layouts : IntIdTable() {
-    val name = text("name")
+    val name = text("name").uniqueIndex()
     val width = float("width")
     val height = float("height")
 }
@@ -78,6 +76,10 @@ class Layout(id: EntityID<Int>) : IntEntity(id) {
     private val textLayers by LayoutTextLayer referrersOn LayoutTextLayers.layoutId
     private val imageLayers by LayoutImageLayer referrersOn LayoutImageLayers.layoutId
     private val photoLayers by LayoutPhotoLayer referrersOn LayoutPhotoLayers.layoutId
+
+    fun toLayoutSettings(): LayoutSettings {
+        return LayoutSettings(getLayers(), Size(width, height))
+    }
 
     fun removeAllLayers() {
         transaction {

@@ -52,11 +52,7 @@ fun Settings(onComplete: (Settings) -> Unit) {
 
     var selectedMenuItem by remember { mutableStateOf(MenuItem.PhotoCamera) }
 
-    var layoutEditorIsVisible by remember { mutableStateOf(false) }
-
     val menuItems = MenuItem.values()
-
-    LayoutSettings(settings, layoutEditorIsVisible) { layoutEditorIsVisible = false }
 
     HorizontalSplitPane(
         splitPaneState = splitterState
@@ -105,10 +101,7 @@ fun Settings(onComplete: (Settings) -> Unit) {
                     MenuItem.PhotoCamera -> CameraSettings(settings)
                     MenuItem.Printer -> PrinterSettings(settings)
                     MenuItem.PhotoServer -> PhotoserverSettings(settings)
-                    MenuItem.Layout -> {
-                        layoutEditorIsVisible = true
-                        selectedMenuItem = MenuItem.PhotoCamera
-                    }
+                    MenuItem.Layout -> LayoutSettings()
                     MenuItem.GuestScreen -> GuestScreenSettings(settings)
 
                 }

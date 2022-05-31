@@ -9,8 +9,8 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
@@ -24,21 +24,19 @@ import kotlin.math.roundToInt
 
 fun main() = singleWindowApplication(WindowState(WindowPlacement.Maximized)) {
     MaterialTheme {
-        LayoutEditor(null, 210f / 297f, false) {}
+        LayoutEditor(LayoutSettings(emptyList(), Size(210f, 297f)), false) {}
     }
 }
 
 data class LayoutSettings(
     val layersList: List<Layer>,
-    val size: IntSize
+    val size: Size,
 )
 
 @OptIn(ExperimentalSplitPaneApi::class)
 @Composable
-fun LayoutEditor(layoutSettings: LayoutSettings?, ratio: Float, requestToClose: Boolean, onComplete: (LayoutSettings) -> Unit) {
-    val layersList = if (layoutSettings != null) {
-        remember { mutableStateListOf(*layoutSettings.layersList.toTypedArray()) }
-    } else remember { mutableStateListOf() }
+fun LayoutEditor(layoutSettings: LayoutSettings, requestToClose: Boolean, onRequestToClose: (LayoutSettings) -> Unit) {
+    val layersList = remember { mutableStateListOf(*layoutSettings.layersList.toTypedArray()) }
     val splitterState = rememberSplitPaneState(1f)
     val hSplitterState = rememberSplitPaneState(moveEnabled = false)
     val toolsSplitterState = rememberSplitPaneState(moveEnabled = false)
@@ -46,9 +44,9 @@ fun LayoutEditor(layoutSettings: LayoutSettings?, ratio: Float, requestToClose: 
     var textDialogIsVisible by remember { mutableStateOf(false) }
     var imageDialogIsVisible by remember { mutableStateOf(false) }
     var photoDialogIsVisible by remember { mutableStateOf(false) }
-    var sizeDraggableEditor by remember { mutableStateOf(IntSize.Zero) }
+    var sizeDraggableEditor by remember { mutableStateOf(Size.Zero) }
 
-    if (requestToClose) onComplete(LayoutSettings(layersList, sizeDraggableEditor))
+    if (requestToClose) onRequestToClose(LayoutSettings(layersList, sizeDraggableEditor))
 
 
     HorizontalSplitPane(splitPaneState = splitterState) {
@@ -78,9 +76,9 @@ fun LayoutEditor(layoutSettings: LayoutSettings?, ratio: Float, requestToClose: 
                         contentAlignment = Alignment.Center
                     ) {
                         DraggableEditor(
-                            layersList,
-                            ratio,
-                            selectedLayer,
+                            layers = layersList,
+                            size = layoutSettings.size,
+                            selectedLayer = selectedLayer,
                             onSelectedChange = { selectedLayer = it },
                             onSizeChange = { sizeDraggableEditor = it }
                         )
@@ -202,7 +200,7 @@ fun LayoutEditor(layoutSettings: LayoutSettings?, ratio: Float, requestToClose: 
 @Composable
 fun LayoutEditorPreview() {
     MaterialTheme {
-        LayoutEditor(null,210f / 297f, false) {}
+        LayoutEditor(LayoutSettings(emptyList(), Size(210f, 297f)), false) {}
     }
 }
 

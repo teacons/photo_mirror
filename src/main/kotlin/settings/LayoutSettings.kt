@@ -135,18 +135,20 @@ fun LayoutSettings() {
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    val lImage = layout.width?.let { width ->
-                        layout.height?.let { height ->
-                            renderComposeScene(width, height) {
-                                DraggableEditor(
-                                    layout.getLayers(),
-                                    IntSize(width, height),
-                                    null,
-                                    {},
-                                    {}
-                                )
+                    val lImage by remember(layout) {
+                        layout.width?.let { width ->
+                            layout.height?.let { height ->
+                                renderComposeScene(width, height) {
+                                    DraggableEditor(
+                                        layout.getLayers(),
+                                        IntSize(width, height),
+                                        null,
+                                        {},
+                                        {}
+                                    )
+                                }
                             }
-                        }
+                        }.let { mutableStateOf(it) }
                     }
 
                     Column(
@@ -155,7 +157,7 @@ fun LayoutSettings() {
                     ) {
                         if (lImage != null) {
                             Image(
-                                bitmap = lImage.toComposeImageBitmap(),
+                                bitmap = lImage!!.toComposeImageBitmap(),
                                 contentDescription = null,
                                 modifier = Modifier.border(BorderStroke(2.dp, Color.Black))
                             )

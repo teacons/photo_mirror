@@ -8,12 +8,10 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.transactions.transaction
+import settings.Camera
 import java.io.File
 
 object SettingsTable : IntIdTable() {
-    val cameraName = text("camera_name").nullable()
-
-    //    ...
     val printerName = text("printer_name").nullable()
     val printerMediaSizeName = text("printer_media_size_name").nullable()
 
@@ -36,8 +34,6 @@ object SettingsTable : IntIdTable() {
 class Settings(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Settings>(SettingsTable)
 
-    var cameraName by SettingsTable.cameraName
-
     var printerName by SettingsTable.printerName
 
     var printerMediaSizeName by SettingsTable.printerMediaSizeName
@@ -55,7 +51,61 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
     var guestTextFontFamily by SettingsTable.guestTextFontFamily
     var guestTextFontSize by SettingsTable.guestTextFontSize
     var guestTextFontColor by SettingsTable.guestTextFontColor
+
+    var camera: Camera? = null
+
+    fun toSettingsData(): SettingsData? {
+        return if (this.isValid())
+            transaction {
+                SettingsData(
+                    camera!!.cameraName,
+                    printerName!!,
+                    printerMediaSizeName!!,
+                    photoserverEnabled!!,
+                    photoserverAddress ?: "",
+                    layout!!.name,
+                    guestHelloText!!,
+                    guestShootText!!,
+                    guestWaitText!!,
+                    guestShootTimer!!,
+                    guestBackgroundFilepath!!,
+                    guestTextFontFamily!!,
+                    guestTextFontSize!!,
+                    guestTextFontColor!!.toULong()
+                )
+            }
+        else null
+    }
+
+    fun isValid() =
+        camera != null || printerName != null || printerMediaSizeName != null || photoserverEnabled != null ||
+                layout != null || guestHelloText != null || guestShootText != null || guestWaitText != null ||
+                guestShootTimer != null || guestBackgroundFilepath != null || guestTextFontFamily != null ||
+                guestTextFontSize != null || guestTextFontColor != null
 }
+
+@kotlinx.serialization.Serializable
+data class SettingsData(
+    var cameraName: String,
+
+    var printerName: String,
+
+    var printerMediaSizeName: String,
+
+    var photoserverEnabled: Boolean,
+    var photoserverAddress: String,
+
+    var layout: String,
+
+    var guestHelloText: String,
+    var guestShootText: String,
+    var guestWaitText: String,
+    var guestShootTimer: Int,
+    var guestBackgroundFilepath: String,
+    var guestTextFontFamily: String,
+    var guestTextFontSize: Int,
+    var guestTextFontColor: ULong
+)
 
 object Layouts : IntIdTable() {
     val name = text("name").uniqueIndex()

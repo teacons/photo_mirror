@@ -1,11 +1,6 @@
 package settings
 
-import LayoutImageLayers
-import LayoutPhotoLayers
-import LayoutTextLayers
-import Layouts
 import Settings
-import SettingsTable
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -20,8 +15,6 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
 import org.jetbrains.compose.splitpane.HorizontalSplitPane
 import org.jetbrains.compose.splitpane.rememberSplitPaneState
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 
 
@@ -29,12 +22,6 @@ import org.jetbrains.exposed.sql.transactions.transaction
 @Composable
 @Preview
 fun Settings(onComplete: (Settings) -> Unit) {
-
-    Database.connect("jdbc:sqlite:db.db", driver = "org.sqlite.JDBC")
-    transaction {
-        SchemaUtils.create(SettingsTable, Layouts, LayoutTextLayers, LayoutImageLayers, LayoutPhotoLayers)
-        commit()
-    }
 
     val settings by rememberSaveable {
         mutableStateOf(
@@ -76,17 +63,7 @@ fun Settings(onComplete: (Settings) -> Unit) {
                 Button(
                     onClick = {
                         transaction {
-                            with(settings) {
-                                if (cameraName != null && printerName != null && printerMediaSizeName != null &&
-                                    photoserverEnabled != null &&
-                                    (if (photoserverEnabled!!) photoserverAddress != null else true) &&
-                                    layout != null && guestHelloText != null && guestShootText != null &&
-                                    guestWaitText != null && guestShootTimer != null && guestBackgroundFilepath != null &&
-                                    guestTextFontFamily != null && guestTextFontSize != null && guestTextFontColor != null
-                                ) {
-                                    onComplete(settings)
-                                }
-                            }
+                            if (settings.isValid()) onComplete(settings)
                         }
                     },
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.9f)

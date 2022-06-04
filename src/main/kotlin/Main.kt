@@ -11,55 +11,71 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import guest.Guest
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import net.harawata.appdirs.AppDirsFactory
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.transaction
 import settings.Settings
+import java.io.File
 
 
 @OptIn(ExperimentalComposeUiApi::class)
-fun main() = application {
+fun main() {
+    val appDirs = AppDirsFactory.getInstance()
 
-    var state by remember { mutableStateOf(ApplicationState.Settings) }
+    val userDataDir = appDirs.getUserDataDir("Photo Mirror", "1.0", "teacons")
 
-    var settings by remember { mutableStateOf<Settings?>(null) }
+    File(userDataDir).also { if (!it.exists()) it.mkdirs() }
 
-    when (state) {
-        ApplicationState.Settings -> {
-            Window(
-                onCloseRequest = ::exitApplication,
-                title = "Настройки"
-            ) {
-                MaterialTheme {
-                    Settings {
-                        state = ApplicationState.Main
-                        settings = it
+
+    Database.connect("jdbc:sqlite:${userDataDir}${File.separator}db.db", driver = "org.sqlite.JDBC")
+    transaction {
+        SchemaUtils.create(SettingsTable, Layouts, LayoutTextLayers, LayoutImageLayers, LayoutPhotoLayers)
+        commit()
+    }
+
+    embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
+        configureRouting()
+        module()
+    }.start()
+
+    application {
+
+        var state by remember { mutableStateOf(ApplicationState.Settings) }
+
+        var settings by remember { mutableStateOf<Settings?>(null) }
+
+        when (state) {
+            ApplicationState.Settings -> {
+                Window(
+                    onCloseRequest = ::exitApplication,
+                    title = "Настройки"
+                ) {
+                    MaterialTheme {
+                        Settings {
+                            state = ApplicationState.Main
+                            settings = it
+                        }
                     }
                 }
             }
-        }
-        ApplicationState.Main -> {
-            Window(
-                onCloseRequest = ::exitApplication,
-                title = "Настройки",
-                state = rememberWindowState(placement = WindowPlacement.Fullscreen),
-                onKeyEvent = {
-                    if (it.key == Key.Escape) {
-                        state = ApplicationState.Settings
-                        true
-                    } else false
+            ApplicationState.Main -> {
+                Window(
+                    onCloseRequest = ::exitApplication,
+                    title = "Настройки",
+                    state = rememberWindowState(placement = WindowPlacement.Fullscreen),
+                    onKeyEvent = {
+                        if (it.key == Key.Escape) {
+                            state = ApplicationState.Settings
+                            true
+                        } else false
 
-                }
-            ) {
-                MaterialTheme {
-                    with(settings!!) {
-                        Guest(
-                            guestHelloText!!,
-                            guestShootText!!,
-                            guestWaitText!!,
-                            guestBackgroundFilepath!!,
-                            guestShootTimer!!,
-                            guestTextFontFamily!!,
-                            guestTextFontSize!!,
-                            guestTextFontColor!!
-                        )
+                    }
+                ) {
+                    MaterialTheme {
+                        Guest(settings!!)
                     }
                 }
             }

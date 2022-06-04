@@ -109,12 +109,12 @@ fun PrinterSettings(settings: Settings) {
             data = selectedMediaSizeName?.let { selectedMediaSizeName ->
                 transaction {
                     Layout.all().toList().filter {
-                        with(
-                            MediaSize.getMediaSizeForName(selectedMediaSizeName).getSize(MediaSize.MM)
-                        ) {
-                            floor(get(0) / it.ratioWidth.toFloat()) == floor(get(1) / it.ratioHeight.toFloat()) ||
-                                    floor(get(1) / it.ratioWidth.toFloat()) == floor(get(0) / it.ratioHeight.toFloat())
-                        }
+                        MediaSize.getMediaSizeForName(selectedMediaSizeName)?.let {mediaSize ->
+                            with(mediaSize.getSize(MediaSize.MM)) {
+                                floor(get(0) / it.ratioWidth.toFloat()) == floor(get(1) / it.ratioHeight.toFloat()) ||
+                                        floor(get(1) / it.ratioWidth.toFloat()) == floor(get(0) / it.ratioHeight.toFloat())
+                            }
+                        } ?: false
                     }
                 }
             }?.map {
@@ -136,49 +136,50 @@ fun PrinterSettings(settings: Settings) {
             Text(text = it.toString())
         }
 
-        val image = selectedLayout?.width?.let { width ->
-            selectedLayout?.height?.let { height ->
-                renderComposeScene(width, height) {
-                    DraggableEditor(
-                        selectedLayout!!.getLayers().map {
-                            if (it is PhotoLayer) {
-                                PhotoLayerWithPhoto(
-                                    it.name,
-                                    it.offset,
-                                    it.scale,
-                                    it.rotation,
-                                    it.photoId,
-                                    it.width,
-                                    it.height,
-                                    File(this.javaClass.classLoader.getResource("sample.png")!!.toURI())
-                                )
-                            } else it
-                        },
-                        IntSize(width, height),
-                        null,
-                        {},
-                        {}
-                    )
+        val image by remember(selectedLayout) {
+            selectedLayout?.width?.let { width ->
+                selectedLayout?.height?.let { height ->
+                    renderComposeScene(width, height) {
+                        DraggableEditor(
+                            selectedLayout!!.getLayers().map {
+                                if (it is PhotoLayer) {
+                                    PhotoLayerWithPhoto(
+                                        it.name,
+                                        it.offset,
+                                        it.scale,
+                                        it.rotation,
+                                        it.photoId,
+                                        it.width,
+                                        it.height,
+                                        File(this.javaClass.classLoader.getResource("sample.png")!!.toURI())
+                                    )
+                                } else it
+                            },
+                            IntSize(width, height),
+                            null,
+                            {},
+                            {}
+                        )
+                    }
                 }
-            }
+            }.let { mutableStateOf(it) }
         }
 
         if (image != null) {
             Box(
                 modifier = Modifier
-                    .aspectRatio(with(
-                        MediaSize.getMediaSizeForName(selectedMediaSizeName).getSize(MediaSize.MM)
-                    ) {
-                        if (image.width / image.height >= 1)
-                            get(1) / get(0)
-                        else
-                            get(0) / get(1)
-                    })
+                    .aspectRatio(
+                        MediaSize.getMediaSizeForName(selectedMediaSizeName)?.getSize(MediaSize.MM)?.let {
+                            if (image!!.width / image!!.height >= 1)
+                                it[1] / it[0]
+                            else
+                                it[0] / it[1]
+                        } ?: 1f)
                     .align(Alignment.CenterHorizontally)
                     .border(BorderStroke(2.dp, Color.Black))
             ) {
                 Image(
-                    bitmap = image.toComposeImageBitmap(),
+                    bitmap = image!!.toComposeImageBitmap(),
                     contentDescription = null,
                 )
             }

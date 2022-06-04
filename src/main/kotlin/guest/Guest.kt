@@ -1,5 +1,6 @@
 package guest
 
+import Settings
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -7,7 +8,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,28 +21,11 @@ import androidx.compose.ui.text.platform.Typeface
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.singleWindowApplication
 import kotlinx.coroutines.delay
 import loadImageBitmap
 import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Typeface
 import java.io.File
-
-
-fun main() = singleWindowApplication {
-    MaterialTheme {
-        Guest(
-            textWelcome = "Бесплатное фото на память",
-            shootText = "Сыр",
-            shootEndText = "Фото будет готово через 15 секунд",
-            backgroundFile = "background.png",
-            initialTimer = 5,
-            fontFamilyName = "Comic Sans MS",
-            fontSize = 100,
-            fontColor = Color.White.value.toLong()
-        )
-    }
-}
 
 enum class MainState {
     Welcome,
@@ -53,28 +36,29 @@ enum class MainState {
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun Guest(
-    textWelcome: String,
-    shootText: String,
-    shootEndText: String,
-    backgroundFile: String,
-    initialTimer: Int,
-    fontFamilyName: String,
-    fontSize: Int,
-    fontColor: Long,
-) {
+fun Guest(settings: Settings) {
+
+    val guestHelloText by remember { mutableStateOf(settings.guestHelloText!!) }
+    val guestShootText by remember { mutableStateOf(settings.guestShootText!!) }
+    val guestWaitText by remember { mutableStateOf(settings.guestWaitText!!) }
+    val guestBackgroundFilepath by remember { mutableStateOf(settings.guestBackgroundFilepath!!) }
+    val guestShootTimer by remember { mutableStateOf(settings.guestShootTimer!!) }
+    val guestTextFontFamily by remember { mutableStateOf(settings.guestTextFontFamily!!) }
+    val guestTextFontSize by remember { mutableStateOf(settings.guestTextFontSize!!) }
+    val fontColor by remember { mutableStateOf(settings.guestTextFontColor!!) }
+
 
     val fontFamily = FontFamily(
         Typeface(
             Typeface.makeFromName(
-                fontFamilyName,
+                guestTextFontFamily,
                 FontStyle.NORMAL
             )
         )
     )
 
 
-    var count by remember { mutableStateOf(initialTimer) }
+    var count by remember { mutableStateOf(guestShootTimer) }
 
     var state by remember { mutableStateOf(MainState.Welcome) }
 
@@ -90,7 +74,7 @@ fun Guest(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            loadImageBitmap(File(backgroundFile)),
+            loadImageBitmap(File(guestBackgroundFilepath)),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             colorFilter = ColorFilter.tint(
@@ -99,14 +83,15 @@ fun Guest(
             )
         )
 
+
         AnimatedVisibility(
             visible = state == MainState.Welcome,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
             Text(
-                text = textWelcome,
-                fontSize = fontSize.sp,
+                text = guestHelloText,
+                fontSize = guestTextFontSize.sp,
                 fontFamily = fontFamily,
                 color = Color(fontColor.toULong()),
                 textAlign = TextAlign.Center,
@@ -126,7 +111,7 @@ fun Guest(
                         count--
                     }
                     delay(1000L)
-                    count = initialTimer
+                    count = guestShootTimer
                     state = MainState.Shoot
                 }
             }
@@ -140,7 +125,7 @@ fun Guest(
             ) { targetCount ->
                 Text(
                     text = "$targetCount",
-                    fontSize = fontSize.sp,
+                    fontSize = guestTextFontSize.sp,
                     fontFamily = fontFamily,
                     color = Color(fontColor.toULong()),
                     textAlign = TextAlign.Center,
@@ -161,8 +146,8 @@ fun Guest(
                 }
             }
             Text(
-                text = shootText,
-                fontSize = fontSize.sp,
+                text = guestShootText,
+                fontSize = guestTextFontSize.sp,
                 fontFamily = fontFamily,
                 color = Color(fontColor.toULong()),
                 textAlign = TextAlign.Center,
@@ -182,8 +167,8 @@ fun Guest(
                 }
             }
             Text(
-                text = shootEndText,
-                fontSize = fontSize.sp,
+                text = guestWaitText,
+                fontSize = guestTextFontSize.sp,
                 fontFamily = fontFamily,
                 color = Color(fontColor.toULong()),
                 textAlign = TextAlign.Center,

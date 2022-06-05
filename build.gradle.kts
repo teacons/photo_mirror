@@ -20,6 +20,7 @@ repositories {
 
 dependencies {
     implementation(compose.desktop.linux_x64)
+    implementation(compose.desktop.linux_arm64)
     implementation(compose.desktop.currentOs)
     implementation(files("libs/gphoto2-jna-1.1.jar"))
     implementation(files("libs/jlibgphoto2-2.0.jar"))

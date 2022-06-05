@@ -53,7 +53,6 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
     var guestTextFontColor by SettingsTable.guestTextFontColor
 
     var camera: Camera? = null
-
     fun toSettingsData(): SettingsData? {
         return if (this.isValid())
             transaction {
@@ -119,17 +118,17 @@ class Layout(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Layout>(Layouts)
 
     var name by Layouts.name
-    var width by Layouts.width
-    var height by Layouts.height
-    var ratioWidth by Layouts.ratioWidth
-    var ratioHeight by Layouts.ratioHeight
+    var layoutWidth by Layouts.width
+    var layoutHeight by Layouts.height
+    var widthInPx by Layouts.ratioWidth
+    var heightInPx by Layouts.ratioHeight
 
     private val textLayers by LayoutTextLayer referrersOn LayoutTextLayers.layoutId
     private val imageLayers by LayoutImageLayer referrersOn LayoutImageLayers.layoutId
     private val photoLayers by LayoutPhotoLayer referrersOn LayoutPhotoLayers.layoutId
 
     fun toLayoutSettings(): LayoutSettings {
-        return LayoutSettings(getLayers(), IntSize(ratioWidth, ratioHeight))
+        return LayoutSettings(getLayers(), IntSize(widthInPx, heightInPx))
     }
 
     fun removeAllLayers() {

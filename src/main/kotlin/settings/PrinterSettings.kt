@@ -111,8 +111,8 @@ fun PrinterSettings(settings: Settings) {
                     Layout.all().toList().filter {
                         MediaSize.getMediaSizeForName(selectedMediaSizeName)?.let {mediaSize ->
                             with(mediaSize.getSize(MediaSize.MM)) {
-                                floor(get(0) / it.ratioWidth.toFloat()) == floor(get(1) / it.ratioHeight.toFloat()) ||
-                                        floor(get(1) / it.ratioWidth.toFloat()) == floor(get(0) / it.ratioHeight.toFloat())
+                                floor(get(0) / it.widthInPx.toFloat()) == floor(get(1) / it.heightInPx.toFloat()) ||
+                                        floor(get(1) / it.widthInPx.toFloat()) == floor(get(0) / it.heightInPx.toFloat())
                             }
                         } ?: false
                     }
@@ -137,8 +137,8 @@ fun PrinterSettings(settings: Settings) {
         }
 
         val image by remember(selectedLayout) {
-            selectedLayout?.width?.let { width ->
-                selectedLayout?.height?.let { height ->
+            selectedLayout?.layoutWidth?.let { width ->
+                selectedLayout?.layoutHeight?.let { height ->
                     renderComposeScene(width, height) {
                         DraggableEditor(
                             selectedLayout!!.getLayers().map {

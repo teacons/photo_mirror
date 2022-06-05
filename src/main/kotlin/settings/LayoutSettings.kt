@@ -46,8 +46,8 @@ fun LayoutSettings() {
         ) {
             transaction {
                 selectedLayout!!.removeAllLayers()
-                selectedLayout!!.width = it.size.width
-                selectedLayout!!.height = it.size.height
+                selectedLayout!!.layoutWidth = it.size.width
+                selectedLayout!!.layoutHeight = it.size.height
                 it.layersList.forEachIndexed { index, layer ->
                     when (layer) {
                         is TextLayer -> LayoutTextLayer.new {
@@ -136,8 +136,8 @@ fun LayoutSettings() {
                     contentAlignment = Alignment.Center
                 ) {
                     val lImage by remember(layout) {
-                        layout.width?.let { width ->
-                            layout.height?.let { height ->
+                        layout.layoutWidth?.let { width ->
+                            layout.layoutHeight?.let { height ->
                                 renderComposeScene(width, height) {
                                     DraggableEditor(
                                         layout.getLayers(),
@@ -223,9 +223,9 @@ fun DialogLayoutEditor(layoutSettings: LayoutSettings, onCloseRequest: (LayoutSe
 fun DialogLayoutCreate(layout: Layout?, onFinish: (Layout?, Boolean) -> Unit) {
     var layoutName by remember { mutableStateOf(layout?.name ?: "") }
     var layoutNameError by remember { mutableStateOf(false) }
-    var layoutWidth by remember { mutableStateOf(layout?.width?.toString() ?: "") }
+    var layoutWidth by remember { mutableStateOf(layout?.widthInPx?.toString() ?: "") }
     var layoutWidthError by remember { mutableStateOf(false) }
-    var layoutHeight by remember { mutableStateOf(layout?.height?.toString() ?: "") }
+    var layoutHeight by remember { mutableStateOf(layout?.heightInPx?.toString() ?: "") }
     var layoutHeightError by remember { mutableStateOf(false) }
     Dialog(
         state = rememberDialogState(height = Dp.Unspecified),
@@ -280,12 +280,12 @@ fun DialogLayoutCreate(layout: Layout?, onFinish: (Layout?, Boolean) -> Unit) {
                                 onFinish(
                                     layout?.apply {
                                         name = layoutName
-                                        ratioWidth = layoutWidth.toInt()
-                                        ratioHeight = layoutHeight.toInt()
+                                        widthInPx = layoutWidth.toInt()
+                                        heightInPx = layoutHeight.toInt()
                                     } ?: Layout.new {
                                         name = layoutName
-                                        ratioWidth = layoutWidth.toInt()
-                                        ratioHeight = layoutHeight.toInt()
+                                        widthInPx = layoutWidth.toInt()
+                                        heightInPx = layoutHeight.toInt()
                                     },
                                     true
                                 )

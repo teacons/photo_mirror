@@ -58,7 +58,7 @@ fun Application.configureRouting() {
     routing {
         get("/api/get/settings") {
             val settings = transaction { Settings.all().firstOrNull() }
-            if (settings == null || !settings.isValid()){
+            if (settings == null || !settings.isValid()) {
                 call.respond(HttpStatusCode.InternalServerError)
                 return@get
             }
@@ -95,8 +95,8 @@ fun Application.configureRouting() {
                 findMediaSizeName(mediaSizeNameName, printServiceName)?.let { mediaSizeName ->
                     transaction { Layout.all() }.filter {
                         with(MediaSize.getMediaSizeForName(mediaSizeName).getSize(MediaSize.MM)) {
-                            floor(get(0) / it.ratioWidth.toFloat()) == floor(get(1) / it.ratioHeight.toFloat()) ||
-                                    floor(get(1) / it.ratioWidth.toFloat()) == floor(get(0) / it.ratioHeight.toFloat())
+                            floor(get(0) / it.widthInPx.toFloat()) == floor(get(1) / it.heightInPx.toFloat()) ||
+                                    floor(get(1) / it.widthInPx.toFloat()) == floor(get(0) / it.heightInPx.toFloat())
                         }
                     }.map { it.name }.also { call.respond(it) }
                 } ?: call.respond(HttpStatusCode.BadRequest)
@@ -123,13 +123,13 @@ fun Application.configureRouting() {
 
                 val layout = transaction { Layout.find { Layouts.name eq layoutName }.first() }
 
-                if (layout.width == null || layout.height == null) {
+                if (layout.layoutWidth == null || layout.layoutHeight == null) {
                     call.respond(HttpStatusCode.BadRequest)
                     return@get
                 }
 
-                val width = layout.width!!
-                val height = layout.height!!
+                val width = layout.layoutWidth!!
+                val height = layout.layoutHeight!!
 
                 val image = renderComposeScene(width, height) {
                     Box(

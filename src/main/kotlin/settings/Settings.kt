@@ -1,6 +1,6 @@
 package settings
 
-import Settings
+import ViewModel
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,7 +8,6 @@ import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,19 +20,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 @OptIn(ExperimentalSplitPaneApi::class)
 @Composable
 @Preview
-fun Settings(onComplete: (Settings) -> Unit) {
-
-    val settings by rememberSaveable {
-        mutableStateOf(
-            transaction() {
-                try {
-                    Settings.all().first()
-                } catch (e: NoSuchElementException) {
-                    Settings.new { }
-                }
-            }
-        )
-    }
+fun Settings(onComplete: () -> Unit) {
 
     val splitterState = rememberSplitPaneState(moveEnabled = false)
 
@@ -63,7 +50,7 @@ fun Settings(onComplete: (Settings) -> Unit) {
                 Button(
                     onClick = {
                         transaction {
-                            if (settings.isValid()) onComplete(settings)
+                            if (ViewModel.settings.value.isValid()) onComplete()
                         }
                     },
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.9f)
@@ -77,11 +64,11 @@ fun Settings(onComplete: (Settings) -> Unit) {
                 modifier = Modifier.padding(15.dp)
             ) {
                 when (selectedMenuItem) {
-                    MenuItem.PhotoCamera -> CameraSettings(settings)
-                    MenuItem.Printer -> PrinterSettings(settings)
-                    MenuItem.PhotoServer -> PhotoserverSettings(settings)
+                    MenuItem.PhotoCamera -> CameraSettings()
+                    MenuItem.Printer -> PrinterSettings()
+                    MenuItem.PhotoServer -> PhotoserverSettings()
                     MenuItem.Layout -> LayoutSettings()
-                    MenuItem.GuestScreen -> GuestScreenSettings(settings)
+                    MenuItem.GuestScreen -> GuestSettings()
 
                 }
             }

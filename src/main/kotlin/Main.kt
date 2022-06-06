@@ -13,28 +13,12 @@ import androidx.compose.ui.window.rememberWindowState
 import guest.Guest
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import net.harawata.appdirs.AppDirsFactory
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
 import settings.Settings
-import java.io.File
 
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val appDirs = AppDirsFactory.getInstance()
 
-    val userDataDir = appDirs.getUserDataDir("Photo Mirror", "1.0", "teacons")
-
-    File(userDataDir).also { if (!it.exists()) it.mkdirs() }
-
-
-    Database.connect("jdbc:sqlite:${userDataDir}${File.separator}db.db", driver = "org.sqlite.JDBC")
-    transaction {
-        SchemaUtils.create(SettingsTable, Layouts, LayoutTextLayers, LayoutImageLayers, LayoutPhotoLayers)
-        commit()
-    }
 
     embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
         configureRouting()
@@ -45,8 +29,6 @@ fun main() {
 
         var state by remember { mutableStateOf(ApplicationState.Settings) }
 
-        var settings by remember { mutableStateOf<Settings?>(null) }
-
         when (state) {
             ApplicationState.Settings -> {
                 Window(
@@ -56,7 +38,6 @@ fun main() {
                     MaterialTheme {
                         Settings {
                             state = ApplicationState.Main
-                            settings = it
                         }
                     }
                 }
@@ -75,7 +56,7 @@ fun main() {
                     }
                 ) {
                     MaterialTheme {
-                        Guest(settings!!)
+                        Guest()
                     }
                 }
             }

@@ -1,15 +1,31 @@
+import ViewModel.findMediaSizeName
+import ViewModel.findPrintService
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import layoutEditor.*
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import layoutEditor.ImageLayer
+import layoutEditor.Layer
+import layoutEditor.PhotoLayer
+import layoutEditor.TextLayer
+import org.apache.commons.validator.routines.InetAddressValidator
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.transactions.transaction
-import settings.Camera
+import x.mvmn.jlibgphoto2.api.GP2Camera
 import java.io.File
+import java.net.InetAddress
+import javax.print.PrintService
+import javax.print.attribute.standard.MediaSizeName
 
 object SettingsTable : IntIdTable() {
     val printerName = text("printer_name").nullable()
@@ -29,6 +45,106 @@ object SettingsTable : IntIdTable() {
     val guestTextFontFamily = text("guest_text_font_family").nullable()
     val guestTextFontSize = integer("guest_text_font_size").nullable()
     val guestTextFontColor = long("guest_text_font_color").nullable()
+}
+
+object InetAddressSerializer : KSerializer<InetAddress?> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("InetAddress", PrimitiveKind.STRING)
+    override fun deserialize(decoder: Decoder): InetAddress? {
+        val inetAddressValidator = InetAddressValidator.getInstance()
+        val string = decoder.decodeString()
+        if (!inetAddressValidator.isValid(string)) return null
+        val addressByteArray = string.split(".").map { it.toInt().toByte() }.toByteArray()
+        return InetAddress.getByAddress(addressByteArray)
+    }
+
+    override fun serialize(encoder: Encoder, value: InetAddress?) {
+        val string = value?.hostAddress ?: ""
+        encoder.encodeString(string)
+    }
+}
+
+object MediaSizeNameSerializer : KSerializer<MediaSizeName?> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("InetAddress", PrimitiveKind.STRING)
+    override fun deserialize(decoder: Decoder): MediaSizeName? {
+//        findMediaSizeName()
+        TODO("Not yet implemented")
+    }
+
+    override fun serialize(encoder: Encoder, value: MediaSizeName?) {
+        val string = value?.toString() ?: ""
+        encoder.encodeString(string)
+    }
+}
+
+data class Camera(
+    val gP2Camera: GP2Camera,
+    val cameraName: String,
+) : Spinnable {
+    override fun toString(): String = cameraName
+}
+
+data class GuestSettings(
+    var guestHelloText: String?,
+    var guestShootText: String?,
+    var guestWaitText: String?,
+    var guestShootTimer: Int?,
+    var guestBackgroundFilepath: String?,
+    var guestTextFontFamily: String?,
+    var guestTextFontSize: Int?,
+    var guestTextFontColor: ULong?
+) {
+    fun isValid(): Boolean {
+        return guestHelloText != null && guestShootText != null && guestWaitText != null && guestShootTimer != null &&
+                guestBackgroundFilepath != null && guestTextFontFamily != null && guestTextFontSize != null &&
+                guestTextFontColor != null
+    }
+}
+
+data class PhotoserverSettings(
+    val photoserverEnabled: Boolean,
+    val photoserverAddress: InetAddress?
+)
+
+
+data class PrinterSettings(
+    val printer: PrintService?,
+    val mediaSizeName: MediaSizeName?,
+    val layout: LayoutSettings?,
+) {
+    fun isValid(): Boolean {
+        return printer != null && mediaSizeName != null && layout != null
+    }
+}
+
+data class ImmutableSettings(
+    val printerSettings: PrinterSettings,
+
+    val photoserverSettings: PhotoserverSettings,
+
+    val guestSettings: GuestSettings
+) {
+    fun isValid(): Boolean {
+        return printerSettings.isValid() && guestSettings.isValid()
+    }
+
+    fun toSettingsData(): SettingsData {
+        return SettingsData(
+            cameraName = ViewModel.camera.value.cameraName,
+            printerName = printerSettings.printer?.name,
+            printerMediaSizeName = printerSettings.mediaSizeName?.toString(),
+            photoserverEnabled = photoserverSettings.photoserverEnabled,
+            photoserverAddress = photoserverSettings.photoserverAddress?.hostAddress,
+            layout = printerSettings.layout?.name,
+            guestHelloText = guestSettings.guestHelloText,
+            guestShootText = guestSettings.guestShootText,
+            guestWaitText = guestSettings.guestWaitText,
+            guestShootTimer = guestSettings.guestShootTimer,
+            guestBackgroundFilepath = guestSettings.guestBackgroundFilepath,
+            guestTextFontFamily = guestSettings.guestTextFontFamily,
+            guestTextFontSize = guestSettings.guestTextFontSize,
+            guestTextFontColor = guestSettings.guestTextFontColor
+        )
+    }
 }
 
 class Settings(id: EntityID<Int>) : IntEntity(id) {
@@ -52,58 +168,85 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
     var guestTextFontSize by SettingsTable.guestTextFontSize
     var guestTextFontColor by SettingsTable.guestTextFontColor
 
-    var camera: Camera? = null
-    fun toSettingsData(): SettingsData? {
-        return if (this.isValid())
-            transaction {
-                SettingsData(
-                    camera!!.cameraName,
-                    printerName!!,
-                    printerMediaSizeName!!,
-                    photoserverEnabled!!,
-                    photoserverAddress ?: "",
-                    layout!!.name,
-                    guestHelloText!!,
-                    guestShootText!!,
-                    guestWaitText!!,
-                    guestShootTimer!!,
-                    guestBackgroundFilepath!!,
-                    guestTextFontFamily!!,
-                    guestTextFontSize!!,
-                    guestTextFontColor!!.toULong()
+    fun toImmutableSettings() =
+        transaction {
+            ImmutableSettings(
+                PrinterSettings(
+                    printer = printerName?.let { findPrintService(it) },
+                    mediaSizeName = printerMediaSizeName?.let { mediaSizeName ->
+                        printerName?.let { printerName ->
+                            findMediaSizeName(mediaSizeName, printerName)
+                        }
+                    },
+                    layout = layout?.toLayoutSettings(),
+                ),
+                PhotoserverSettings(
+                    photoserverEnabled = photoserverEnabled ?: false,
+                    photoserverAddress = InetAddress.getByAddress(
+                        photoserverAddress?.split(".")?.map { it.toInt().toByte() }
+                            ?.toByteArray()),
+                ),
+                GuestSettings(
+                    guestHelloText = guestHelloText,
+                    guestShootText = guestShootText,
+                    guestWaitText = guestWaitText,
+                    guestShootTimer = guestShootTimer,
+                    guestBackgroundFilepath = guestBackgroundFilepath,
+                    guestTextFontFamily = guestTextFontFamily,
+                    guestTextFontSize = guestTextFontSize,
+                    guestTextFontColor = guestTextFontColor?.toULong(),
                 )
-            }
-        else null
-    }
+            )
+        }
 
-    fun isValid() =
-        camera != null || printerName != null || printerMediaSizeName != null || photoserverEnabled != null ||
-                layout != null || guestHelloText != null || guestShootText != null || guestWaitText != null ||
-                guestShootTimer != null || guestBackgroundFilepath != null || guestTextFontFamily != null ||
-                guestTextFontSize != null || guestTextFontColor != null
+    fun updateWithImmutableSettings(immutableSettings: ImmutableSettings) {
+        transaction {
+            printerName = immutableSettings.printerSettings.printer?.name
+            printerMediaSizeName = immutableSettings.printerSettings.mediaSizeName?.toString()
+            layout = immutableSettings.printerSettings.layout?.let { Layout.find { Layouts.name eq it.name }.first() }
+            photoserverEnabled = immutableSettings.photoserverSettings.photoserverEnabled
+            photoserverAddress = immutableSettings.photoserverSettings.photoserverAddress?.hostAddress
+            guestHelloText = immutableSettings.guestSettings.guestHelloText
+            guestShootText = immutableSettings.guestSettings.guestShootText
+            guestWaitText = immutableSettings.guestSettings.guestWaitText
+            guestShootTimer = immutableSettings.guestSettings.guestShootTimer
+            guestBackgroundFilepath = immutableSettings.guestSettings.guestBackgroundFilepath
+            guestTextFontFamily = immutableSettings.guestSettings.guestTextFontFamily
+            guestTextFontSize = immutableSettings.guestSettings.guestTextFontSize
+            guestTextFontColor = immutableSettings.guestSettings.guestTextFontColor?.toLong()
+        }
+    }
 }
 
-@kotlinx.serialization.Serializable
+@Serializable
+data class CameraConfigEntry(
+    val configName: String,
+    val value: String,
+    val choices: List<String>
+)
+
+
+@Serializable
 data class SettingsData(
-    var cameraName: String,
+    var cameraName: String?,
 
-    var printerName: String,
+    var printerName: String?,
 
-    var printerMediaSizeName: String,
+    var printerMediaSizeName: String?,
 
-    var photoserverEnabled: Boolean,
-    var photoserverAddress: String,
+    var photoserverEnabled: Boolean?,
+    var photoserverAddress: String?,
 
-    var layout: String,
+    var layout: String?,
 
-    var guestHelloText: String,
-    var guestShootText: String,
-    var guestWaitText: String,
-    var guestShootTimer: Int,
-    var guestBackgroundFilepath: String,
-    var guestTextFontFamily: String,
-    var guestTextFontSize: Int,
-    var guestTextFontColor: ULong
+    var guestHelloText: String?,
+    var guestShootText: String?,
+    var guestWaitText: String?,
+    var guestShootTimer: Int?,
+    var guestBackgroundFilepath: String?,
+    var guestTextFontFamily: String?,
+    var guestTextFontSize: Int?,
+    var guestTextFontColor: ULong?
 )
 
 object Layouts : IntIdTable() {
@@ -112,6 +255,22 @@ object Layouts : IntIdTable() {
     val height = integer("height").nullable()
     val ratioWidth = integer("ratio_width")
     val ratioHeight = integer("ratio_height")
+}
+
+data class LayoutSettings(
+    val name: String,
+    val layoutSize: IntSize?,
+    val sizeInPx: IntSize,
+    val layers: List<Layer>,
+) : Spinnable {
+    override fun toString(): String {
+        return name
+    }
+
+    fun getCaptureCount(): Int {
+        return layers.filterIsInstance<PhotoLayer>().maxOf { it.photoId }
+    }
+
 }
 
 class Layout(id: EntityID<Int>) : IntEntity(id) {
@@ -128,7 +287,16 @@ class Layout(id: EntityID<Int>) : IntEntity(id) {
     private val photoLayers by LayoutPhotoLayer referrersOn LayoutPhotoLayers.layoutId
 
     fun toLayoutSettings(): LayoutSettings {
-        return LayoutSettings(getLayers(), IntSize(widthInPx, heightInPx))
+        return LayoutSettings(
+            name = name,
+            layoutSize = layoutWidth?.let { layoutWidth ->
+                layoutHeight?.let { layoutHeight ->
+                    IntSize(layoutWidth, layoutHeight)
+                }
+            },
+            sizeInPx = IntSize(widthInPx, heightInPx),
+            layers = getLayers()
+        )
     }
 
     fun removeAllLayers() {

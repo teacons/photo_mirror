@@ -1,8 +1,9 @@
 package settings
 
-import Settings
+import Camera
 import Spinnable
 import Spinner
+import ViewModel
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,38 +12,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import x.mvmn.jlibgphoto2.api.CameraListItemBean
-import x.mvmn.jlibgphoto2.api.GP2Camera
-import x.mvmn.jlibgphoto2.impl.CameraDetectorImpl
-import x.mvmn.jlibgphoto2.impl.GP2CameraImpl
-import x.mvmn.jlibgphoto2.impl.GP2PortInfoList
-
-
-data class Camera(
-    val cameraListItem: CameraListItemBean,
-    val cameraName: String,
-) : Spinnable {
-    var camera: GP2Camera? = null
-    override fun toString(): String = cameraName
-}
 
 
 @Composable
-fun CameraSettings(settings: Settings) {
+fun CameraSettings() {
 
-    var selectedCamera by remember { mutableStateOf(settings.camera) }
+    val selectedCamera by ViewModel.camera.collectAsState()
 
-    val isLinux by remember { mutableStateOf(System.getProperty("os.name").equals("Linux", true)) }
-
-
-    val cameraList by remember {
-        if (isLinux) {
-            CameraDetectorImpl().detectCameras().map { Camera(it, it.cameraModel) }
-        } else emptyList()
-    }.let { mutableStateOf(it) }
+    val cameraList by ViewModel.cameraList.collectAsState()
 
     val stateVertical = rememberScrollState(0)
 
@@ -59,39 +41,33 @@ fun CameraSettings(settings: Settings) {
     ) {
         Spinner(
             data = cameraList,
-            value = selectedCamera?.cameraName ?: "",
+            value = selectedCamera.cameraName,
             onSelectedChanges = {
-                selectedCamera?.camera?.close()
-                selectedCamera = (it as Camera).apply {
-                    camera = GP2CameraImpl(GP2PortInfoList().getByPath(cameraListItem.portName))
-                }
-                settings.camera = it
+                ViewModel.updateCurrentCamera(it as Camera)
             },
             label = { Text(text = "Камера") }
         ) {
             Text(text = it.toString())
         }
 
-        if (selectedCamera != null && selectedCamera!!.camera != null) {
-            selectedCamera!!.camera!!.config.filter {
-                (it.path.startsWith("/main/imgsettings", ignoreCase = true) ||
-                        it.path.startsWith("/main/capturesettings", ignoreCase = true))
-                        && it.choices != null && it.choices.size > 1
-            }.forEach { config ->
-                Spinner(
-                    data = config.choices.map {
-                        object : Spinnable {
-                            override fun toString() = it
-                        }
-                    },
-                    value = config.value.toString(),
-                    onSelectedChanges = {
-                        selectedCamera!!.camera!!.setConfig(config.cloneWithNewValue(it.toString()))
-                    },
-                    label = { Text(text = config.label) }
-                ) {
-                    Text(text = it.toString())
-                }
+        selectedCamera.gP2Camera.config.filter {
+            (it.path.startsWith("/main/imgsettings", ignoreCase = true) ||
+                    it.path.startsWith("/main/capturesettings", ignoreCase = true))
+                    && it.choices != null && it.choices.size > 1
+        }.forEach { config ->
+            Spinner(
+                data = config.choices.map {
+                    object : Spinnable {
+                        override fun toString() = it
+                    }
+                },
+                value = config.value.toString(),
+                onSelectedChanges = {
+                    selectedCamera.gP2Camera.setConfig(config.cloneWithNewValue(it.toString()))
+                },
+                label = { Text(text = config.label) }
+            ) {
+                Text(text = it.toString())
             }
         }
     }

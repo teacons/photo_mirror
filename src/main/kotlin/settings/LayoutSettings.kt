@@ -3,6 +3,7 @@ package settings
 import Layout
 import LayoutImageLayer
 import LayoutPhotoLayer
+import LayoutSettings
 import LayoutTextLayer
 import Layouts
 import androidx.compose.foundation.*
@@ -46,9 +47,9 @@ fun LayoutSettings() {
         ) {
             transaction {
                 selectedLayout!!.removeAllLayers()
-                selectedLayout!!.layoutWidth = it.size.width
-                selectedLayout!!.layoutHeight = it.size.height
-                it.layersList.forEachIndexed { index, layer ->
+                selectedLayout!!.layoutWidth = it.layoutSize!!.width
+                selectedLayout!!.layoutHeight = it.layoutSize.height
+                it.layers.forEachIndexed { index, layer ->
                     when (layer) {
                         is TextLayer -> LayoutTextLayer.new {
                             name = layer.name

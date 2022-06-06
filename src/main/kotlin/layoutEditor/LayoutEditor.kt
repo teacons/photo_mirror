@@ -1,6 +1,6 @@
 package layoutEditor
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
+import LayoutSettings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
@@ -12,9 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.WindowPlacement
-import androidx.compose.ui.window.WindowState
-import androidx.compose.ui.window.singleWindowApplication
 import org.burnoutcrew.reorderable.move
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
 import org.jetbrains.compose.splitpane.HorizontalSplitPane
@@ -22,21 +19,10 @@ import org.jetbrains.compose.splitpane.VerticalSplitPane
 import org.jetbrains.compose.splitpane.rememberSplitPaneState
 import kotlin.math.roundToInt
 
-fun main() = singleWindowApplication(WindowState(WindowPlacement.Maximized)) {
-    MaterialTheme {
-        LayoutEditor(LayoutSettings(emptyList(), IntSize(210, 297)), false) {}
-    }
-}
-
-data class LayoutSettings(
-    val layersList: List<Layer>,
-    val size: IntSize,
-)
-
 @OptIn(ExperimentalSplitPaneApi::class)
 @Composable
 fun LayoutEditor(layoutSettings: LayoutSettings, requestToClose: Boolean, onRequestToClose: (LayoutSettings) -> Unit) {
-    val layersList = remember { mutableStateListOf(*layoutSettings.layersList.toTypedArray()) }
+    val layersList = remember { mutableStateListOf(*layoutSettings.layers.toTypedArray()) }
     val splitterState = rememberSplitPaneState(1f)
     val hSplitterState = rememberSplitPaneState(moveEnabled = false)
     val toolsSplitterState = rememberSplitPaneState(moveEnabled = false)
@@ -46,7 +32,7 @@ fun LayoutEditor(layoutSettings: LayoutSettings, requestToClose: Boolean, onRequ
     var photoDialogIsVisible by remember { mutableStateOf(false) }
     var sizeDraggableEditor by remember { mutableStateOf(IntSize.Zero) }
 
-    if (requestToClose) onRequestToClose(LayoutSettings(layersList, sizeDraggableEditor))
+    if (requestToClose) onRequestToClose(layoutSettings.copy(layers = layersList, layoutSize = sizeDraggableEditor))
 
 
     HorizontalSplitPane(splitPaneState = splitterState) {
@@ -77,7 +63,7 @@ fun LayoutEditor(layoutSettings: LayoutSettings, requestToClose: Boolean, onRequ
                     ) {
                         DraggableEditor(
                             layers = layersList,
-                            size = layoutSettings.size,
+                            size = layoutSettings.sizeInPx,
                             selectedLayer = selectedLayer,
                             onSelectedChange = { selectedLayer = it },
                             onSizeChange = { sizeDraggableEditor = it }
@@ -192,15 +178,6 @@ fun LayoutEditor(layoutSettings: LayoutSettings, requestToClose: Boolean, onRequ
                     layersList.add(photoLayer)
             }
         }
-    }
-}
-
-
-@Preview
-@Composable
-fun LayoutEditorPreview() {
-    MaterialTheme {
-        LayoutEditor(LayoutSettings(emptyList(), IntSize(210, 297)), false) {}
     }
 }
 

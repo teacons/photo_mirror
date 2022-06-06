@@ -1,10 +1,9 @@
 package settings
 
-import Layout
-import Layouts
-import Settings
+import LayoutSettings
 import Spinnable
 import Spinner
+import ViewModel
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -20,15 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.renderComposeScene
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import layoutEditor.DraggableEditor
 import layoutEditor.PhotoLayer
 import layoutEditor.PhotoLayerWithPhoto
-import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.File
 import javax.print.PrintService
-import javax.print.PrintServiceLookup
 import javax.print.attribute.standard.Media
 import javax.print.attribute.standard.MediaSize
 import javax.print.attribute.standard.MediaSizeName
@@ -40,19 +36,27 @@ fun PrintService.getSupportedMediaSizeNames(): List<MediaSizeName> {
         ?: emptyList()
 }
 
+fun PrintService.findMediaSizeName(mediaSizeName: String): MediaSizeName? {
+    return getSupportedMediaSizeNames().find { it.toString() == mediaSizeName }
+}
+
+fun List<LayoutSettings>.findRelevant(mediaSize: MediaSize): List<LayoutSettings> {
+    val mediaSizeWidth = mediaSize.getSize(MediaSize.MM)[0]
+    val mediaSizeHeight = mediaSize.getSize(MediaSize.MM)[1]
+    return filter {
+        floor(mediaSizeWidth / it.sizeInPx.width.toFloat()) == floor(mediaSizeHeight / it.sizeInPx.height.toFloat()) ||
+                floor(mediaSizeHeight / it.sizeInPx.width.toFloat()) == floor(mediaSizeWidth / it.sizeInPx.height.toFloat())
+    }
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun PrinterSettings(settings: Settings) {
-    val printServices = PrintServiceLookup.lookupPrintServices(null, null)
+fun PrinterSettings() {
+    val printServices = ViewModel.getPrintServices()
 
-    var selectedPrintService by remember { mutableStateOf(printServices.find { it.name == settings.printerName }) }
+    val settings by ViewModel.settings.collectAsState()
 
-    var selectedMediaSizeName by remember {
-        mutableStateOf(
-            selectedPrintService?.getSupportedMediaSizeNames()?.find { it.toString() == settings.printerMediaSizeName })
-    }
-
-    var selectedLayout by remember { mutableStateOf(transaction { settings.layout }) }
+    val printerSettings = settings.printerSettings
 
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -62,18 +66,15 @@ fun PrinterSettings(settings: Settings) {
                     override fun toString() = it.name
                 }
             },
-            value = selectedPrintService?.name ?: "",
+            value = printerSettings.printer?.name ?: "",
             onSelectedChanges = {
-                printServices.find { printService -> printService.name == it.toString() }?.let {
-                    selectedPrintService = it
-                    selectedMediaSizeName = null
-                    transaction {
-                        settings.printerName = selectedPrintService!!.name
-                        settings.printerMediaSizeName = null
-                        settings.layout = null
-                        commit()
-                    }
-                }
+                ViewModel.updatePrinterSettings(
+                    printerSettings.copy(
+                        printer = ViewModel.findPrintService(it.toString()),
+                        mediaSizeName = null,
+                        layout = null
+                    )
+                )
             },
             label = { Text(text = "Принтер") }
         ) {
@@ -81,24 +82,19 @@ fun PrinterSettings(settings: Settings) {
         }
 
         Spinner(
-            data = selectedPrintService?.getSupportedMediaSizeNames()?.map {
+            data = printerSettings.printer?.getSupportedMediaSizeNames()?.map {
                 object : Spinnable {
                     override fun toString() = it.toString()
                 }
             } ?: emptyList(),
-            value = selectedMediaSizeName?.toString() ?: "",
+            value = printerSettings.mediaSizeName?.toString() ?: "",
             onSelectedChanges = {
-                selectedPrintService?.getSupportedMediaSizeNames()
-                    ?.find { mediaSizeName -> mediaSizeName.toString() == it.toString() }
-                    ?.let {
-                        selectedMediaSizeName = it
-                        selectedLayout = null
-                        transaction {
-                            settings.printerMediaSizeName = selectedMediaSizeName!!.toString()
-                            settings.layout = null
-                            commit()
-                        }
-                    }
+                ViewModel.updatePrinterSettings(
+                    printerSettings.copy(
+                        mediaSizeName = printerSettings.printer!!.findMediaSizeName(it.toString()),
+                        layout = null
+                    )
+                )
             },
             label = { Text(text = "Размер бумаги") }
         ) {
@@ -106,61 +102,43 @@ fun PrinterSettings(settings: Settings) {
         }
 
         Spinner(
-            data = selectedMediaSizeName?.let { selectedMediaSizeName ->
-                transaction {
-                    Layout.all().toList().filter {
-                        MediaSize.getMediaSizeForName(selectedMediaSizeName)?.let {mediaSize ->
-                            with(mediaSize.getSize(MediaSize.MM)) {
-                                floor(get(0) / it.widthInPx.toFloat()) == floor(get(1) / it.heightInPx.toFloat()) ||
-                                        floor(get(1) / it.widthInPx.toFloat()) == floor(get(0) / it.heightInPx.toFloat())
-                            }
-                        } ?: false
-                    }
-                }
-            }?.map {
-                object : Spinnable {
-                    override fun toString() = it.name
+            data = printerSettings.mediaSizeName?.let { selectedMediaSizeName ->
+                MediaSize.getMediaSizeForName(selectedMediaSizeName)?.let { mediaSize ->
+                    ViewModel.getLayouts().findRelevant(mediaSize)
                 }
             } ?: emptyList(),
-            value = selectedLayout?.name ?: "",
+            value = printerSettings.layout?.name ?: "",
             onSelectedChanges = {
-                transaction {
-                    selectedLayout = Layout.find { Layouts.name eq it.toString() }.first()
-                    settings.layout = selectedLayout!!
-                    commit()
-                }
-
+                ViewModel.updatePrinterSettings(printerSettings.copy(layout = it as LayoutSettings))
             },
             label = { Text(text = "Совместимый макет") }
         ) {
             Text(text = it.toString())
         }
 
-        val image by remember(selectedLayout) {
-            selectedLayout?.layoutWidth?.let { width ->
-                selectedLayout?.layoutHeight?.let { height ->
-                    renderComposeScene(width, height) {
-                        DraggableEditor(
-                            selectedLayout!!.getLayers().map {
-                                if (it is PhotoLayer) {
-                                    PhotoLayerWithPhoto(
-                                        it.name,
-                                        it.offset,
-                                        it.scale,
-                                        it.rotation,
-                                        it.photoId,
-                                        it.width,
-                                        it.height,
-                                        File(this.javaClass.classLoader.getResource("sample.png")!!.toURI())
-                                    )
-                                } else it
-                            },
-                            IntSize(width, height),
-                            null,
-                            {},
-                            {}
-                        )
-                    }
+        val image by remember(printerSettings) {
+            printerSettings.layout?.layoutSize?.let { size ->
+                renderComposeScene(size.width, size.height) {
+                    DraggableEditor(
+                        printerSettings.layout.layers.map {
+                            if (it is PhotoLayer) {
+                                PhotoLayerWithPhoto(
+                                    it.name,
+                                    it.offset,
+                                    it.scale,
+                                    it.rotation,
+                                    it.photoId,
+                                    it.width,
+                                    it.height,
+                                    File(this.javaClass.classLoader.getResource("sample.png")!!.toURI())
+                                )
+                            } else it
+                        },
+                        size,
+                        null,
+                        {},
+                        {}
+                    )
                 }
             }.let { mutableStateOf(it) }
         }
@@ -169,12 +147,13 @@ fun PrinterSettings(settings: Settings) {
             Box(
                 modifier = Modifier
                     .aspectRatio(
-                        MediaSize.getMediaSizeForName(selectedMediaSizeName)?.getSize(MediaSize.MM)?.let {
-                            if (image!!.width / image!!.height >= 1)
-                                it[1] / it[0]
-                            else
-                                it[0] / it[1]
-                        } ?: 1f)
+                        MediaSize.getMediaSizeForName(printerSettings.mediaSizeName)?.getSize(MediaSize.MM)
+                            ?.let {
+                                if (image!!.width / image!!.height >= 1)
+                                    it[1] / it[0]
+                                else
+                                    it[0] / it[1]
+                            } ?: 1f)
                     .align(Alignment.CenterHorizontally)
                     .border(BorderStroke(2.dp, Color.Black))
             ) {

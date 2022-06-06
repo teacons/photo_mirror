@@ -1,11 +1,5 @@
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.renderComposeScene
-import androidx.compose.ui.unit.IntSize
 import io.ktor.http.*
 import io.ktor.serialization.gson.*
 import io.ktor.serialization.kotlinx.json.*
@@ -13,25 +7,18 @@ import io.ktor.server.application.*
 import io.ktor.server.plugins.autohead.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.partialcontent.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import layoutEditor.DraggableEditor
-import layoutEditor.PhotoLayer
-import layoutEditor.PhotoLayerWithPhoto
 import org.apache.commons.validator.routines.InetAddressValidator
-import org.jetbrains.exposed.sql.transactions.transaction
+import settings.findRelevant
 import settings.getSupportedMediaSizeNames
 import java.awt.GraphicsEnvironment
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.InetAddress
 import javax.imageio.ImageIO
-import javax.print.PrintService
-import javax.print.PrintServiceLookup
 import javax.print.attribute.standard.MediaSize
-import javax.print.attribute.standard.MediaSizeName
-import kotlin.math.floor
 
 
 fun Application.module() {
@@ -43,30 +30,19 @@ fun Application.module() {
     install(AutoHeadResponse)
 }
 
-fun getPrintServices(): List<PrintService> =
-    PrintServiceLookup.lookupPrintServices(null, null)?.toList() ?: emptyList()
 
-fun findPrintService(name: String): PrintService? = getPrintServices().find { it.name == name }
-
-fun findMediaSizeName(mediaSizeName: String, printServiceName: String): MediaSizeName? =
-    findPrintService(printServiceName)?.getSupportedMediaSizeNames()?.find { it.toString() == mediaSizeName }
-
-
-@OptIn(ExperimentalComposeUiApi::class)
 fun Application.configureRouting() {
 
     routing {
+        get("/api/get/check/connection") {
+            call.respond(HttpStatusCode.OK)
+        }
         get("/api/get/settings") {
-            val settings = transaction { Settings.all().firstOrNull() }
-            if (settings == null || !settings.isValid()) {
-                call.respond(HttpStatusCode.InternalServerError)
-                return@get
-            }
-            call.respond(settings.toSettingsData()!!)
+            call.respond(ViewModel.settings.value.toSettingsData())
         }
 
         get("/api/get/print_services") {
-            call.respond(getPrintServices().map { it.name })
+            call.respond(ViewModel.getPrintServices().map { it.name })
         }
 
         get("/api/get/media_size_names") {
@@ -77,7 +53,7 @@ fun Application.configureRouting() {
 
             val printServiceName = call.request.queryParameters["print_service"]!!
 
-            findPrintService(printServiceName)?.let { printService ->
+            ViewModel.findPrintService(printServiceName)?.let { printService ->
                 printService.getSupportedMediaSizeNames().map { it.toString() }.also { call.respond(it) }
             } ?: call.respond(HttpStatusCode.BadRequest)
         }
@@ -92,91 +68,48 @@ fun Application.configureRouting() {
                 val printServiceName = queryParameters["print_service"]!!
                 val mediaSizeNameName = queryParameters["media_size_name"]!!
 
-                findMediaSizeName(mediaSizeNameName, printServiceName)?.let { mediaSizeName ->
-                    transaction { Layout.all() }.filter {
-                        with(MediaSize.getMediaSizeForName(mediaSizeName).getSize(MediaSize.MM)) {
-                            floor(get(0) / it.widthInPx.toFloat()) == floor(get(1) / it.heightInPx.toFloat()) ||
-                                    floor(get(1) / it.widthInPx.toFloat()) == floor(get(0) / it.heightInPx.toFloat())
-                        }
-                    }.map { it.name }.also { call.respond(it) }
+                ViewModel.findMediaSizeName(mediaSizeNameName, printServiceName)?.let { mediaSizeName ->
+                    MediaSize.getMediaSizeForName(mediaSizeName)?.let { mediaSize ->
+                        ViewModel.getLayouts().findRelevant(mediaSize).map { it.name }.also { call.respond(it) }
+                    } ?: call.respond(HttpStatusCode.BadRequest)
                 } ?: call.respond(HttpStatusCode.BadRequest)
             }
         }
 
         get("/api/get/layouts") {
-            transaction { Layout.all() }.map { it.name }.also { call.respond(it) }
+            ViewModel.getLayouts().map { it.name }.also { call.respond(it) }
         }
 
         get("/api/get/layout_with_photos") {
             with(call.request) {
-                if (queryParameters["layout"] == null ||
-                    queryParameters["print_service"] == null ||
-                    queryParameters["media_size_name"] == null
-                ) {
+                if (queryParameters["layout"] == null) {
                     call.respond(HttpStatusCode.BadRequest)
                     return@get
                 }
 
                 val layoutName = queryParameters["layout"]!!
-                val printServiceName = queryParameters["print_service"]!!
-                val mediaSizeNameName = queryParameters["media_size_name"]!!
 
-                val layout = transaction { Layout.find { Layouts.name eq layoutName }.first() }
+                val layout = ViewModel.getLayoutByName(layoutName)
 
-                if (layout.layoutWidth == null || layout.layoutHeight == null) {
+                if (layout.layoutSize == null) {
                     call.respond(HttpStatusCode.BadRequest)
                     return@get
                 }
 
-                val width = layout.layoutWidth!!
-                val height = layout.layoutHeight!!
+                val image = ViewModel.generateLayout(
+                    layout,
+                    List(layout.getCaptureCount()) {
+                        File(this.javaClass.classLoader.getResource("sample.png")!!.toURI())
+                    },
+                    1f
+                )
 
-                val image = renderComposeScene(width, height) {
-                    Box(
-                        modifier = Modifier
-                            .aspectRatio(with(
-                                MediaSize.getMediaSizeForName(
-                                    findMediaSizeName(mediaSizeNameName, printServiceName)
-                                ).getSize(MediaSize.MM)
-                            ) {
-                                if (width / height >= 1)
-                                    get(1) / get(0)
-                                else
-                                    get(0) / get(1)
-                            })
-                    ) {
-                        DraggableEditor(
-                            layout.getLayers().map {
-                                if (it is PhotoLayer) {
-                                    PhotoLayerWithPhoto(
-                                        it.name,
-                                        it.offset,
-                                        it.scale,
-                                        it.rotation,
-                                        it.photoId,
-                                        it.width,
-                                        it.height,
-                                        File(this.javaClass.classLoader.getResource("sample.png")!!.toURI())
-                                    )
-                                } else it
-                            },
-                            IntSize(width, height),
-                            null,
-                            {},
-                            {}
-                        )
-                    }
-                }
+                val baos = ByteArrayOutputStream()
+                ImageIO.write(
+                    image.toComposeImageBitmap().toAwtImage(), "png", baos
+                )
 
-                call.respondOutputStream {
-                    this.also {
-                        withContext(Dispatchers.IO) {
-                            ImageIO.write(
-                                image.toComposeImageBitmap().toAwtImage(), "jpg", it
-                            )
-                        }
-                    }
-                }
+                call.respondBytes(baos.toByteArray(), contentType = ContentType.defaultForFileExtension("png"))
             }
         }
 
@@ -204,12 +137,47 @@ fun Application.configureRouting() {
             GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.also { call.respond(it) }
         }
 
-        get("/api/get/fonts") {
-            listOf(
-                "Камера 1",
-                "Камера 2",
-                "Камера 3"
-            ).also { call.respond(it) }
+        get("/api/get/cameras") {
+            ViewModel.cameraList.value.map { it.cameraName }.also { call.respond(it) }
+        }
+
+        get("/api/get/camera/configs") {
+            if (call.request.queryParameters["camera_name"] == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@get
+            }
+
+            val camera = ViewModel.getCameraByName(call.request.queryParameters["camera_name"]!!)
+
+            if (camera == null) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@get
+            }
+
+            camera.gP2Camera.config.filter {
+                (it.path.startsWith("/main/imgsettings", ignoreCase = true) ||
+                        it.path.startsWith("/main/capturesettings", ignoreCase = true))
+                        && it.choices != null && it.choices.size > 1
+            }.map {
+                CameraConfigEntry(
+                    configName = it.label,
+                    value = it.value.toString(),
+                    choices = it.choices.toList()
+                )
+            }.also { call.respond(it) }
+
+            camera.gP2Camera.release()
+        }
+
+        post("/api/post/settings") {
+            val settingsData = try {
+                call.receive<SettingsData>()
+            } catch (e: ContentTransformationException) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
+            ViewModel.updateSettings(settingsData)
+            call.respond(HttpStatusCode.OK)
         }
     }
 }

@@ -1,108 +1,66 @@
 package settings
 
-import Settings
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Done
+import IpConnectionTextField
+import ViewModel
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.Checkbox
+import androidx.compose.material.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import org.apache.commons.validator.routines.InetAddressValidator
-import org.jetbrains.exposed.sql.transactions.transaction
+import kotlinx.coroutines.withContext
 import java.net.InetAddress
 
-enum class AddressState {
-    None, Good, Bad, Checking
-}
 
 @Composable
-fun PhotoserverSettings(settings: Settings) {
-    var photoserverEnabled by remember { mutableStateOf(settings.photoserverEnabled) }
-    var photoserverAddress by remember { mutableStateOf(settings.photoserverAddress) }
-    var photoserverAddressError by remember { mutableStateOf(settings.photoserverAddress == null) }
-    var photoserverAddressState by remember { mutableStateOf(AddressState.None) }
+fun PhotoserverSettings() {
+    val settings by ViewModel.settings.collectAsState()
 
-    val coroutineScope = rememberCoroutineScope()
+    val photoserverSettings = settings.photoserverSettings
+
+    var photoserverAddress by rememberSaveable(photoserverSettings) { mutableStateOf(photoserverSettings.photoserverAddress?.hostAddress) }
+
+    var photoserverInetAddress by rememberSaveable{ mutableStateOf<InetAddress?>(null) }
 
     Column {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(
-                checked = photoserverEnabled == true,
+                checked = photoserverSettings.photoserverEnabled,
                 onCheckedChange = {
-                    photoserverEnabled = it
-                    transaction {
-                        settings.photoserverEnabled = photoserverEnabled
-                        commit()
-                    }
+                    ViewModel.updatePhotoServerSettings(photoserverSettings.copy(photoserverEnabled = it))
                 },
             )
-            if (photoserverEnabled == true) {
+            if (photoserverSettings.photoserverEnabled) {
                 Text("Включен")
             } else {
                 Text("Выключен")
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = photoserverAddress ?: "",
-                onValueChange = {
-                    photoserverAddress = it
-                    photoserverAddressError = !InetAddressValidator.getInstance().isValid(it)
-                    photoserverAddressState = AddressState.None
-                },
-                maxLines = 1,
-                isError = photoserverAddressError,
-                label = { Text(text = "Адрес фотосервера") },
-                modifier = Modifier.weight(1f)
-            )
-            Button(
-                onClick = {
-                    photoserverAddressState = AddressState.Checking
-                    coroutineScope.launch(context = Dispatchers.IO) {
-                        if (!photoserverAddressError) {
-                            if (InetAddress.getByAddress(photoserverAddress!!.split(".").map { it.toInt().toByte() }
-                                    .toByteArray()).isReachable(5000)
-                            ) {
-                                photoserverAddressState = AddressState.Good
-                                transaction {
-                                    settings.photoserverAddress = photoserverAddress
-                                    commit()
-                                }
-                            } else photoserverAddressState = AddressState.Bad
-                        }
-                    }
+        IpConnectionTextField(
+            address = photoserverAddress ?: "",
+            onValueChange = {
+                photoserverAddress = it
+            },
+            checkConnection = {
+                withContext(Dispatchers.IO) {
+                    val inetAddress =
+                        InetAddress.getByAddress(photoserverAddress!!.split(".").map { it.toInt().toByte() }
+                            .toByteArray())
+                    val isReachable = inetAddress.isReachable(5000)
+                    if (isReachable) photoserverInetAddress = inetAddress
+                    isReachable
                 }
-            ) {
-                Text(
-                    text = "Проверить",
-                )
-            }
-            Box(modifier = Modifier.size(40.dp)) {
-                when (photoserverAddressState) {
-                    AddressState.Good -> Icon(
-                        imageVector = Icons.Filled.Done,
-                        contentDescription = null,
-                        tint = Color.Green,
-                        modifier = Modifier.matchParentSize()
-                    )
-                    AddressState.Bad -> Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = null,
-                        tint = Color.Red,
-                        modifier = Modifier.matchParentSize()
-                    )
-                    AddressState.Checking -> CircularProgressIndicator(
-                        modifier = Modifier.matchParentSize()
-                    )
-                    AddressState.None -> {}
-                }
-            }
-        }
+            },
+            onConnectionSuccess = {
+                ViewModel.updatePhotoServerSettings(photoserverSettings.copy(photoserverAddress = photoserverInetAddress))
+            },
+            modifier = Modifier,
+            label = { Text(text = "Адерес фотосервера") }
+        )
     }
 }

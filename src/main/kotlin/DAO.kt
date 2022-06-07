@@ -129,7 +129,7 @@ data class ImmutableSettings(
 
     fun toSettingsData(): SettingsData {
         return SettingsData(
-            cameraName = ViewModel.camera.value.cameraName,
+            cameraName = ViewModel.camera.value?.cameraName,
             printerName = printerSettings.printer?.name,
             printerMediaSizeName = printerSettings.mediaSizeName?.toString(),
             photoserverEnabled = photoserverSettings.photoserverEnabled,
@@ -305,12 +305,6 @@ class Layout(id: EntityID<Int>) : IntEntity(id) {
             imageLayers.forEach { it.delete() }
             photoLayers.forEach { it.delete() }
             commit()
-        }
-    }
-
-    fun getPhotoLayersMaxId(): Int {
-        return transaction {
-            photoLayers.maxOf { it.photoId }
         }
     }
 

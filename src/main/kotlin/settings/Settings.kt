@@ -31,7 +31,7 @@ fun Settings(onComplete: () -> Unit) {
     HorizontalSplitPane(
         splitPaneState = splitterState
     ) {
-        first(200.dp) {
+        first(225.dp) {
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {

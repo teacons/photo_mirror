@@ -11,8 +11,6 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.apache.commons.validator.routines.InetAddressValidator
-import settings.findRelevant
-import settings.getSupportedMediaSizeNames
 import java.awt.GraphicsEnvironment
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -74,10 +72,6 @@ fun Application.configureRouting() {
                     } ?: call.respond(HttpStatusCode.BadRequest)
                 } ?: call.respond(HttpStatusCode.BadRequest)
             }
-        }
-
-        get("/api/get/layouts") {
-            ViewModel.getLayouts().map { it.name }.also { call.respond(it) }
         }
 
         get("/api/get/layout_with_photos") {
@@ -178,6 +172,30 @@ fun Application.configureRouting() {
             }
             ViewModel.updateSettings(settingsData)
             call.respond(HttpStatusCode.OK)
+        }
+
+        post("/api/post/camera_config") {
+            val cameraConfiguration = try {
+                call.receive<List<CameraConfigEntry>>()
+            } catch (e: ContentTransformationException) {
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
+            ViewModel.updateCameraConfiguration(cameraConfiguration)
+            call.respond(HttpStatusCode.OK)
+        }
+
+        post("/api/post/lock") {
+            call.respond(ViewModel.lockMirror())
+        }
+
+        post("/api/post/unlock") {
+            call.respond(ViewModel.unlockMirror())
+        }
+
+        post("/api/post/shutdown") {
+            call.respond(true)
+            ViewModel.shutdownMirror()
         }
     }
 }

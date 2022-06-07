@@ -18,7 +18,6 @@ import org.apache.commons.validator.routines.InetAddressValidator
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
-import settings.getSupportedMediaSizeNames
 import x.mvmn.jlibgphoto2.impl.CameraDetectorImpl
 import x.mvmn.jlibgphoto2.impl.GP2CameraImpl
 import x.mvmn.jlibgphoto2.impl.GP2PortInfoList
@@ -31,6 +30,7 @@ import javax.print.PrintService
 import javax.print.PrintServiceLookup
 import javax.print.attribute.standard.MediaSizeName
 import kotlin.math.roundToInt
+import kotlin.system.exitProcess
 
 object ViewModel {
     private val mutableStateFlowSettings: MutableStateFlow<ImmutableSettings>
@@ -39,12 +39,20 @@ object ViewModel {
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
-    private val mutableStateFlowCamera: MutableStateFlow<Camera>
+    private val mutableStateFlowCamera: MutableStateFlow<Camera?>
     val camera get() = mutableStateFlowCamera.asStateFlow()
 
     private val mutableStateFlowCameraList: MutableStateFlow<List<Camera>>
     val cameraList get() = mutableStateFlowCameraList.asStateFlow()
 
+    private val mutableStateFlowPrintServices = MutableStateFlow(getPrintServices())
+    val printServices get() = mutableStateFlowPrintServices.asStateFlow()
+
+    private val mutableStateFlowIsLocked = MutableStateFlow(false)
+    val isLocked get() = mutableStateFlowIsLocked.asStateFlow()
+
+    private var isCameraRefreshing = false
+    private var isPrinterRefreshing = false
 
     init {
         val appDirs = AppDirsFactory.getInstance()
@@ -72,7 +80,7 @@ object ViewModel {
 
         mutableStateFlowCameraList = MutableStateFlow(getCameraList())
 
-        mutableStateFlowCamera = MutableStateFlow(mutableStateFlowCameraList.value.first())
+        mutableStateFlowCamera = MutableStateFlow(cameraList.value.firstOrNull())
 
         coroutineScope.launch {
             mutableStateFlowSettings.collect {
@@ -90,6 +98,34 @@ object ViewModel {
 
     fun getCameraByName(cameraName: String): Camera? {
         return cameraList.value.find { it.cameraName == cameraName }
+    }
+
+    fun refreshCameraList() {
+        if (!isCameraRefreshing) {
+            isCameraRefreshing = true
+            coroutineScope.launch {
+                mutableStateFlowCameraList.value.forEach {
+                    try {
+                        it.gP2Camera.close()
+                    } catch (_: Exception) {
+                    }
+                }
+                mutableStateFlowCameraList.value = getCameraList()
+                mutableStateFlowCamera.value = cameraList.value.firstOrNull()
+                isCameraRefreshing = false
+            }
+        }
+    }
+
+    fun refreshPrintService() {
+        if (!isPrinterRefreshing) {
+            isPrinterRefreshing = true
+            coroutineScope.launch {
+                mutableStateFlowPrintServices.value = getPrintServices()
+                isPrinterRefreshing = false
+            }
+        }
+
     }
 
     private fun isLinux(): Boolean {
@@ -126,6 +162,16 @@ object ViewModel {
         )
     }
 
+    fun updateCameraConfiguration(cameraConfiguration: List<CameraConfigEntry>) {
+        if (camera.value != null) {
+            val k = camera.value!!.gP2Camera.config
+            val t = cameraConfiguration.map { cameraConfigEntry ->
+                k.find { it.label == cameraConfigEntry.configName }!!.cloneWithNewValue(cameraConfigEntry.value)
+            }
+            camera.value!!.gP2Camera.setConfig(*t.toTypedArray())
+        }
+    }
+
     fun updateCurrentCamera(camera: Camera) {
         mutableStateFlowCamera.value = camera.copy()
     }
@@ -159,9 +205,9 @@ object ViewModel {
         findPrintService(printServiceName)?.getSupportedMediaSizeNames()?.find { it.toString() == mediaSizeName }
 
     fun captureImage(): File? {
-        return try {
-            val t = camera.value.gP2Camera.captureImage()
-            val ba = camera.value.gP2Camera.getCameraFileContents(t.path, t.name)
+        return if (camera.value != null) try {
+            val t = camera.value!!.gP2Camera.captureImage()
+            val ba = camera.value!!.gP2Camera.getCameraFileContents(t.path, t.name)
             val sdf = SimpleDateFormat("dd-MM-yyyy")
             File("${sdf.format(Date())}${File.separator}${t.name}").apply {
                 parentFile.mkdirs()
@@ -170,11 +216,27 @@ object ViewModel {
             }
         } catch (e: Exception) {
             null
-        }
+        } else null
     }
 
     fun cameraRelease() {
-        camera.value.gP2Camera.release()
+        if (camera.value != null) {
+            camera.value!!.gP2Camera.release()
+        }
+    }
+
+    fun lockMirror(): Boolean {
+        mutableStateFlowIsLocked.value = true
+        return isLocked.value
+    }
+
+    fun unlockMirror(): Boolean {
+        mutableStateFlowIsLocked.value = false
+        return isLocked.value
+    }
+
+    fun shutdownMirror() {
+        exitProcess(0)
     }
 
     @OptIn(ExperimentalComposeUiApi::class)

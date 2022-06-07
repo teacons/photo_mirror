@@ -67,7 +67,7 @@ fun ImageDialog(
                 Image(
                     bitmap = loadImageBitmap(imageFile!!),
                     contentDescription = null,
-                    modifier = Modifier.fillMaxWidth(0.9f)
+                    modifier = Modifier.fillMaxHeight(0.9f)
                 )
             }
             Button(

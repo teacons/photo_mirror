@@ -2,9 +2,11 @@ package settings
 
 import IpConnectionTextField
 import ViewModel
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Checkbox
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
@@ -25,42 +27,56 @@ fun PhotoserverSettings() {
 
     var photoserverAddress by rememberSaveable(photoserverSettings) { mutableStateOf(photoserverSettings.photoserverAddress?.hostAddress) }
 
-    var photoserverInetAddress by rememberSaveable{ mutableStateOf<InetAddress?>(null) }
+    var photoserverInetAddress by rememberSaveable { mutableStateOf<InetAddress?>(null) }
 
-    Column {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(
-                checked = photoserverSettings.photoserverEnabled,
-                onCheckedChange = {
-                    ViewModel.updatePhotoServerSettings(photoserverSettings.copy(photoserverEnabled = it))
-                },
-            )
-            if (photoserverSettings.photoserverEnabled) {
-                Text("Включен")
-            } else {
-                Text("Выключен")
-            }
-        }
-        IpConnectionTextField(
-            address = photoserverAddress ?: "",
-            onValueChange = {
-                photoserverAddress = it
-            },
-            checkConnection = {
-                withContext(Dispatchers.IO) {
-                    val inetAddress =
-                        InetAddress.getByAddress(photoserverAddress!!.split(".").map { it.toInt().toByte() }
-                            .toByteArray())
-                    val isReachable = inetAddress.isReachable(5000)
-                    if (isReachable) photoserverInetAddress = inetAddress
-                    isReachable
-                }
-            },
-            onConnectionSuccess = {
-                ViewModel.updatePhotoServerSettings(photoserverSettings.copy(photoserverAddress = photoserverInetAddress))
-            },
-            modifier = Modifier,
-            label = { Text(text = "Адерес фотосервера") }
+    val stateVertical = rememberScrollState(0)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        VerticalScrollbar(
+            modifier = Modifier
+                .fillMaxHeight()
+                .align(Alignment.CenterEnd),
+            adapter = rememberScrollbarAdapter(stateVertical)
         )
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.verticalScroll(stateVertical)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = photoserverSettings.photoserverEnabled,
+                    onCheckedChange = {
+                        ViewModel.updatePhotoServerSettings(photoserverSettings.copy(photoserverEnabled = it))
+                    },
+                )
+                if (photoserverSettings.photoserverEnabled) {
+                    Text("Включен")
+                } else {
+                    Text("Выключен")
+                }
+            }
+            IpConnectionTextField(
+                address = photoserverAddress ?: "",
+                onValueChange = {
+                    photoserverAddress = it
+                },
+                checkConnection = {
+                    withContext(Dispatchers.IO) {
+                        val inetAddress =
+                            InetAddress.getByAddress(photoserverAddress!!.split(".").map { it.toInt().toByte() }
+                                .toByteArray())
+                        val isReachable = inetAddress.isReachable(5000)
+                        if (isReachable) photoserverInetAddress = inetAddress
+                        isReachable
+                    }
+                },
+                onConnectionSuccess = {
+                    ViewModel.updatePhotoServerSettings(photoserverSettings.copy(photoserverAddress = photoserverInetAddress))
+                },
+                modifier = Modifier,
+                label = { Text(text = "Адерес фотосервера") }
+            )
+        }
     }
 }

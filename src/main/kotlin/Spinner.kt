@@ -1,7 +1,7 @@
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredSizeIn
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -24,7 +24,7 @@ fun Spinner(
     value: String = "",
     onSelectedChanges: (Spinnable) -> Unit,
     isError: Boolean = false,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.fillMaxWidth(),
     label: @Composable () -> Unit = {},
     Content: @Composable (Spinnable) -> Unit
 ) {
@@ -35,41 +35,39 @@ fun Spinner(
 
     var filter by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier) {
-        Row {
-            OutlinedTextField(
-                value = searchText,
-                onValueChange = {
-                    searchText = it
-                    filter = true
-                    expanded = true
-                },
-                label = label,
-                isError = isError,
-                textStyle = MaterialTheme.typography.h6,
-                modifier = Modifier.weight(1f).onFocusChanged { expanded = it.isFocused },
-                trailingIcon = {
-                    Icon(
-                        imageVector = if (expanded) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
-                        contentDescription = null,
-                        tint = MaterialTheme.colors.primary,
-                        modifier = Modifier.clickable { expanded = !expanded }
-                    )
-                }
-            )
-            SpinnerDropdown(
-                expanded = expanded,
-                onExpandedChanges = { expanded = it },
-                data = if (filter) data.filter { element ->
-                    element.toString().contains(searchText, ignoreCase = true)
-                } else data,
-                onSelectedChanges = {
-                    searchText = it.toString()
-                    onSelectedChanges(it)
-                },
-                Content = Content
-            )
-        }
+    Row {
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = {
+                searchText = it
+                filter = true
+                expanded = true
+            },
+            label = label,
+            isError = isError,
+            textStyle = MaterialTheme.typography.h6,
+            modifier = Modifier.onFocusChanged { expanded = it.isFocused }.then(modifier),
+            trailingIcon = {
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colors.primary,
+                    modifier = Modifier.clickable { expanded = !expanded }
+                )
+            }
+        )
+        SpinnerDropdown(
+            expanded = expanded,
+            onExpandedChanges = { expanded = it },
+            data = if (filter) data.filter { element ->
+                element.toString().contains(searchText, ignoreCase = true)
+            } else data,
+            onSelectedChanges = {
+                searchText = it.toString()
+                onSelectedChanges(it)
+            },
+            Content = Content
+        )
     }
 }
 

@@ -7,78 +7,74 @@ import ViewModel
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.renderComposeScene
 import androidx.compose.ui.unit.dp
-import layoutEditor.DraggableEditor
-import layoutEditor.PhotoLayer
-import layoutEditor.PhotoLayerWithPhoto
+import findMediaSizeName
+import findRelevant
+import getSupportedMediaSizeNames
 import java.io.File
-import javax.print.PrintService
-import javax.print.attribute.standard.Media
 import javax.print.attribute.standard.MediaSize
-import javax.print.attribute.standard.MediaSizeName
-import kotlin.math.floor
 
-fun PrintService.getSupportedMediaSizeNames(): List<MediaSizeName> {
-    return (getSupportedAttributeValues(Media::class.java, null, null) as Array<*>?)
-        ?.filterIsInstance<MediaSizeName>()
-        ?: emptyList()
-}
 
-fun PrintService.findMediaSizeName(mediaSizeName: String): MediaSizeName? {
-    return getSupportedMediaSizeNames().find { it.toString() == mediaSizeName }
-}
-
-fun List<LayoutSettings>.findRelevant(mediaSize: MediaSize): List<LayoutSettings> {
-    val mediaSizeWidth = mediaSize.getSize(MediaSize.MM)[0]
-    val mediaSizeHeight = mediaSize.getSize(MediaSize.MM)[1]
-    return filter {
-        floor(mediaSizeWidth / it.sizeInPx.width.toFloat()) == floor(mediaSizeHeight / it.sizeInPx.height.toFloat()) ||
-                floor(mediaSizeHeight / it.sizeInPx.width.toFloat()) == floor(mediaSizeWidth / it.sizeInPx.height.toFloat())
-    }
-}
-
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun PrinterSettings() {
-    val printServices = ViewModel.getPrintServices()
+    val printServices by ViewModel.printServices.collectAsState()
 
     val settings by ViewModel.settings.collectAsState()
 
     val printerSettings = settings.printerSettings
 
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Spinner(
-            data = printServices.map {
-                object : Spinnable {
-                    override fun toString() = it.name
-                }
-            },
-            value = printerSettings.printer?.name ?: "",
-            onSelectedChanges = {
-                ViewModel.updatePrinterSettings(
-                    printerSettings.copy(
-                        printer = ViewModel.findPrintService(it.toString()),
-                        mediaSizeName = null,
-                        layout = null
-                    )
-                )
-            },
-            label = { Text(text = "Принтер") }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = it.toString())
+            Spinner(
+                data = printServices.map {
+                    object : Spinnable {
+                        override fun toString() = it.name
+                    }
+                },
+                value = printerSettings.printer?.name ?: "",
+                onSelectedChanges = {
+                    ViewModel.updatePrinterSettings(
+                        printerSettings.copy(
+                            printer = ViewModel.findPrintService(it.toString()),
+                            mediaSizeName = null,
+                            layout = null
+                        )
+                    )
+                },
+                label = { Text(text = "Принтер") },
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                Text(text = it.toString())
+            }
+            IconButton(
+                onClick = { ViewModel.refreshPrintService() },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = null,
+                    tint = MaterialTheme.colors.primary,
+                )
+            }
         }
 
         Spinner(
@@ -117,29 +113,14 @@ fun PrinterSettings() {
         }
 
         val image by remember(printerSettings) {
-            printerSettings.layout?.layoutSize?.let { size ->
-                renderComposeScene(size.width, size.height) {
-                    DraggableEditor(
-                        printerSettings.layout.layers.map {
-                            if (it is PhotoLayer) {
-                                PhotoLayerWithPhoto(
-                                    it.name,
-                                    it.offset,
-                                    it.scale,
-                                    it.rotation,
-                                    it.photoId,
-                                    it.width,
-                                    it.height,
-                                    File(this.javaClass.classLoader.getResource("sample.png")!!.toURI())
-                                )
-                            } else it
-                        },
-                        size,
-                        null,
-                        {},
-                        {}
-                    )
-                }
+            printerSettings.layout?.let {
+                ViewModel.generateLayout(
+                    it,
+                    List(it.getCaptureCount()) {
+                        File(this.javaClass.classLoader.getResource("sample.png")!!.toURI())
+                    },
+                    1f
+                )
             }.let { mutableStateOf(it) }
         }
 
@@ -156,6 +137,7 @@ fun PrinterSettings() {
                             } ?: 1f)
                     .align(Alignment.CenterHorizontally)
                     .border(BorderStroke(2.dp, Color.Black))
+                    .fillMaxHeight()
             ) {
                 Image(
                     bitmap = image!!.toComposeImageBitmap(),

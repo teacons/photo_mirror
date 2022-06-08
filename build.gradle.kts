@@ -36,6 +36,7 @@ dependencies {
     implementation("org.xerial:sqlite-jdbc:3.36.0.3")
     implementation("commons-validator:commons-validator:1.7")
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("io.ktor:ktor-server-content-negotiation-jvm:2.0.1")
     implementation("io.ktor:ktor-server-core-jvm:2.0.1")
     implementation("io.ktor:ktor-serialization-gson-jvm:2.0.1")

@@ -1,6 +1,5 @@
 package guest
 
-import ImagePrintable
 import ViewModel
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
@@ -33,13 +32,6 @@ import loadImageBitmap
 import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Typeface
 import java.io.File
-import javax.print.DocFlavor
-import javax.print.PrintException
-import javax.print.SimpleDoc
-import javax.print.attribute.HashPrintRequestAttributeSet
-import javax.print.attribute.standard.MediaPrintableArea
-import javax.print.attribute.standard.MediaSize
-import javax.print.attribute.standard.OrientationRequested
 
 enum class MainState {
     Welcome,
@@ -56,6 +48,7 @@ fun Guest() {
 
     val guestSettings = settings.guestSettings
     val printerSettings = settings.printerSettings
+    val photoserverSettings = settings.photoserverSettings
 
     val fontFamily = FontFamily(
         Typeface(
@@ -117,9 +110,16 @@ fun Guest() {
                 if (state == MainState.Shoot) {
                     LaunchedEffect(Unit) {
                         withContext(Dispatchers.IO) {
-                            ViewModel.captureImage()?.let { imageFile -> images.add(imageFile) }
+                            ViewModel.captureImage()?.let { imageFile ->
+                                images.add(imageFile)
+                                if (photoserverSettings.photoserverEnabled) ViewModel.sendPhotoToPhotoserver(imageFile)
+                            } ?: run {
+                                state = MainState.Welcome
+                            }
+                            delay(1000L)
                             state = if (printerSettings.layout!!.getCaptureCount() > images.size) MainState.Timer
                             else {
+                                ViewModel.capturesToZero()
                                 ViewModel.cameraRelease()
                                 MainState.ShootEnd
                             }
@@ -137,26 +137,7 @@ fun Guest() {
 
                         images.clear()
 
-                        val job = printerSettings.printer!!.createPrintJob()
-                        val printAttributes = HashPrintRequestAttributeSet().apply {
-                            if (print.width >= print.height) add(OrientationRequested.LANDSCAPE)
-                            else add(OrientationRequested.PORTRAIT)
-                            add(printerSettings.mediaSizeName!!)
-
-                            MediaSize.getMediaSizeForName(printerSettings.mediaSizeName).getSize(MediaSize.INCH).let {
-                                add(MediaPrintableArea(0f, 0f, it[0], it[1], MediaPrintableArea.INCH))
-                            }
-                        }
-                        val doc = SimpleDoc(
-                            ImagePrintable(print),
-                            DocFlavor.SERVICE_FORMATTED.PRINTABLE,
-                            null
-                        )
-                        try {
-                            job.print(doc, printAttributes)
-                        } catch (e: PrintException) {
-                            e.printStackTrace()
-                        }
+                        ViewModel.print(print)
                     }
                 }
                 AnimatedContent(

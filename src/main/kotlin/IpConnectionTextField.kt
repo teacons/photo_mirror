@@ -50,7 +50,6 @@ fun IpConnectionTextField(
             onClick = {
                 if (connectionIsChecking) return@Button
                 coroutineScope.launch {
-                    println("launched")
                     connectionIsChecking = true
                     if (inetAddressValidator.isValid(address)) {
                         trailingIcon = { CircularProgressIndicator() }

@@ -63,11 +63,9 @@ fun PhotoserverSettings() {
                 },
                 checkConnection = {
                     withContext(Dispatchers.IO) {
-                        val inetAddress =
-                            InetAddress.getByAddress(photoserverAddress!!.split(".").map { it.toInt().toByte() }
-                                .toByteArray())
-                        val isReachable = inetAddress.isReachable(5000)
-                        if (isReachable) photoserverInetAddress = inetAddress
+                        val isReachable = ViewModel.checkPhotoserverConnection(it)
+                        if (isReachable) photoserverInetAddress =
+                            InetAddress.getByAddress(it.split(".").map { it.toInt().toByte() }.toByteArray())
                         isReachable
                     }
                 },

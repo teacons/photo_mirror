@@ -14,7 +14,6 @@ import org.apache.commons.validator.routines.InetAddressValidator
 import java.awt.GraphicsEnvironment
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.net.InetAddress
 import javax.imageio.ImageIO
 import javax.print.attribute.standard.MediaSize
 
@@ -116,14 +115,7 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-                val inetAddress =
-                    InetAddress
-                        .getByAddress(queryParameters["inet_address"]!!
-                            .split(".")
-                            .map { it.toInt().toByte() }
-                            .toByteArray())
-
-                call.respond(inetAddress.isReachable(5000))
+                call.respond(ViewModel.checkPhotoserverConnection(queryParameters["inet_address"]!!))
             }
         }
 
@@ -196,6 +188,28 @@ fun Application.configureRouting() {
         post("/api/post/shutdown") {
             call.respond(true)
             ViewModel.shutdownMirror()
+        }
+
+        get("/api/get/events") {
+            call.request.queryParameters["last_id"].also { lastId ->
+                if (lastId == null || lastId.toIntOrNull() == null) {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@get
+                }
+                if (ViewModel.events.isEmpty()) {
+                    call.respond(emptyList<Event>())
+                    return@get
+                }
+                if (lastId.toInt() !in ViewModel.events.indices) {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@get
+                }
+                call.respond(ViewModel.events.subList(lastId.toInt(), ViewModel.events.size - 1))
+            }
+        }
+
+        get("/api/get/last_event_id") {
+            ViewModel.events.lastIndex.also { call.respond(if (it == -1) 0 else it) }
         }
     }
 }

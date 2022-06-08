@@ -47,6 +47,11 @@ object SettingsTable : IntIdTable() {
     val guestTextFontColor = long("guest_text_font_color").nullable()
 }
 
+data class Event(
+    val subject: String,
+    val reason: String
+)
+
 object InetAddressSerializer : KSerializer<InetAddress?> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("InetAddress", PrimitiveKind.STRING)
     override fun deserialize(decoder: Decoder): InetAddress? {

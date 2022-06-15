@@ -187,9 +187,8 @@ class Settings(id: EntityID<Int>) : IntEntity(id) {
                 ),
                 PhotoserverSettings(
                     photoserverEnabled = photoserverEnabled ?: false,
-                    photoserverAddress = InetAddress.getByAddress(
-                        photoserverAddress?.split(".")?.map { it.toInt().toByte() }
-                            ?.toByteArray()),
+                    photoserverAddress = photoserverAddress?.split(".")?.map { it.toInt().toByte() }
+                        ?.toByteArray()?.let { InetAddress.getByAddress(it) },
                 ),
                 GuestSettings(
                     guestHelloText = guestHelloText,
@@ -256,10 +255,10 @@ data class SettingsData(
 
 object Layouts : IntIdTable() {
     val name = text("name").uniqueIndex()
-    val width = integer("width").nullable()
-    val height = integer("height").nullable()
-    val ratioWidth = integer("ratio_width")
-    val ratioHeight = integer("ratio_height")
+    val layoutWidth = integer("layout_width").nullable()
+    val layoutHeight = integer("layout_height").nullable()
+    val widthInPx = integer("width_px")
+    val heightInPx = integer("height_px")
 }
 
 data class LayoutSettings(
@@ -273,7 +272,7 @@ data class LayoutSettings(
     }
 
     fun getCaptureCount(): Int {
-        return layers.filterIsInstance<PhotoLayer>().maxOf { it.photoId }
+        return layers.filterIsInstance<PhotoLayer>().maxOfOrNull { it.photoId } ?: 0
     }
 
 }
@@ -282,10 +281,10 @@ class Layout(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Layout>(Layouts)
 
     var name by Layouts.name
-    var layoutWidth by Layouts.width
-    var layoutHeight by Layouts.height
-    var widthInPx by Layouts.ratioWidth
-    var heightInPx by Layouts.ratioHeight
+    var layoutWidth by Layouts.layoutWidth
+    var layoutHeight by Layouts.layoutHeight
+    var widthInPx by Layouts.widthInPx
+    var heightInPx by Layouts.heightInPx
 
     private val textLayers by LayoutTextLayer referrersOn LayoutTextLayers.layoutId
     private val imageLayers by LayoutImageLayer referrersOn LayoutImageLayers.layoutId

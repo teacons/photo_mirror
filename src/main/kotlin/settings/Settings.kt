@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.splitpane.ExperimentalSplitPaneApi
 import org.jetbrains.compose.splitpane.HorizontalSplitPane
 import org.jetbrains.compose.splitpane.rememberSplitPaneState
-import org.jetbrains.exposed.sql.transactions.transaction
 
 
 @OptIn(ExperimentalSplitPaneApi::class)
@@ -49,9 +48,7 @@ fun Settings(onComplete: () -> Unit) {
                 }
                 Button(
                     onClick = {
-                        transaction {
-                            if (ViewModel.settings.value.isValid()) onComplete()
-                        }
+                        if (ViewModel.settings.value.isValid()) onComplete()
                     },
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.9f)
                 ) {

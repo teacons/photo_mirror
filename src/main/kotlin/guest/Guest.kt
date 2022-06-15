@@ -33,7 +33,7 @@ import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Typeface
 import java.io.File
 
-enum class MainState {
+enum class GuestState {
     Welcome,
     Timer,
     Shoot,
@@ -62,7 +62,7 @@ fun Guest() {
 
     var count by remember(settings) { mutableStateOf(guestSettings.guestShootTimer!!) }
 
-    var state by remember { mutableStateOf(MainState.Welcome) }
+    var state by remember { mutableStateOf(GuestState.Welcome) }
 
     val images = remember { mutableListOf<File>() }
 
@@ -74,10 +74,10 @@ fun Guest() {
             modifier = Modifier
                 .fillMaxSize()
                 .then(
-                    if (state == MainState.Welcome) Modifier.clickable(
+                    if (state == GuestState.Welcome) Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) { state = MainState.Timer } else Modifier),
+                    ) { state = GuestState.Timer } else Modifier),
             contentAlignment = Alignment.Center
         ) {
             Image(
@@ -96,7 +96,7 @@ fun Guest() {
                     fadeIn() with fadeOut()
                 }
             ) {
-                if (state == MainState.Timer) {
+                if (state == GuestState.Timer) {
                     LaunchedEffect(Unit) {
                         while (count > 1) {
                             delay(1000L)
@@ -104,33 +104,33 @@ fun Guest() {
                         }
                         delay(1000L)
                         count = guestSettings.guestShootTimer!!
-                        state = MainState.Shoot
+                        state = GuestState.Shoot
                     }
                 }
-                if (state == MainState.Shoot) {
+                if (state == GuestState.Shoot) {
                     LaunchedEffect(Unit) {
                         withContext(Dispatchers.IO) {
                             ViewModel.captureImage()?.let { imageFile ->
                                 images.add(imageFile)
                                 if (photoserverSettings.photoserverEnabled) ViewModel.sendPhotoToPhotoserver(imageFile)
                             } ?: run {
-                                state = MainState.Welcome
+                                state = GuestState.Welcome
                             }
                             delay(1000L)
-                            state = if (printerSettings.layout!!.getCaptureCount() > images.size) MainState.Timer
+                            state = if (printerSettings.layout!!.getCaptureCount() > images.size) GuestState.Timer
                             else {
                                 ViewModel.capturesToZero()
                                 ViewModel.cameraRelease()
-                                MainState.ShootEnd
+                                GuestState.ShootEnd
                             }
                         }
                     }
                 }
-                if (state == MainState.ShootEnd) {
+                if (state == GuestState.ShootEnd) {
                     LaunchedEffect(Unit) {
                         launch {
                             delay(10000L)
-                            state = MainState.Welcome
+                            state = GuestState.Welcome
                         }
 
                         val print = ViewModel.generateLayout(printerSettings.layout!!, images)
@@ -150,10 +150,10 @@ fun Guest() {
                 ) { targetCount ->
                     Text(
                         text = when (it) {
-                            MainState.Welcome -> guestSettings.guestHelloText!!
-                            MainState.Shoot -> guestSettings.guestShootText!!
-                            MainState.ShootEnd -> guestSettings.guestWaitText!!
-                            MainState.Timer -> "$targetCount"
+                            GuestState.Welcome -> guestSettings.guestHelloText!!
+                            GuestState.Shoot -> guestSettings.guestShootText!!
+                            GuestState.ShootEnd -> guestSettings.guestWaitText!!
+                            GuestState.Timer -> "$targetCount"
                         },
                         fontSize = guestSettings.guestTextFontSize!!.sp,
                         fontFamily = fontFamily,
